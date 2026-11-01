@@ -1,0 +1,135 @@
+/* All rules are scoped to the modal; GitHub's page keeps its own styling. */
+dialog[data-gh-image-peek] {
+  all: initial;
+  box-sizing: border-box;
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f0f6fc;
+  color-scheme: dark;
+  font: 14px / 1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+dialog[data-gh-image-peek]:not([open]) { display: none; }
+dialog[data-gh-image-peek][open] { display: flex; flex-direction: column; }
+dialog[data-gh-image-peek]::backdrop { background: rgb(3 7 13 / 90%); }
+dialog[data-gh-image-peek] * { box-sizing: border-box; }
+dialog[data-gh-image-peek] [hidden] { display: none !important; }
+
+dialog[data-gh-image-peek] [data-peek-toolbar] {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #ffffff21;
+  background: #0d1117;
+}
+
+dialog[data-gh-image-peek] [data-peek-heading] { flex: 1; min-width: 0; }
+dialog[data-gh-image-peek] [data-peek-heading] strong { display: block; font-weight: 650; }
+dialog[data-gh-image-peek] [data-peek-heading] span {
+  display: block;
+  overflow: hidden;
+  color: #b1bac4;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+dialog[data-gh-image-peek] button,
+dialog[data-gh-image-peek] a {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid #ffffff38;
+  border-radius: 8px;
+  background: #21262d;
+  color: #f0f6fc;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+dialog[data-gh-image-peek] button[aria-label="Close image viewer"] { padding: 0; font-size: 28px; line-height: 1; }
+dialog[data-gh-image-peek] button:hover:enabled,
+dialog[data-gh-image-peek] a:hover { background: #30363d; border-color: #8b949e; }
+dialog[data-gh-image-peek] button:disabled { opacity: 0.45; cursor: default; }
+dialog[data-gh-image-peek] :focus-visible { outline: 3px solid #a78bfa; outline-offset: 3px; }
+
+dialog[data-gh-image-peek] [data-peek-stage] {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  padding: 24px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: #8b949e #0d1117;
+}
+
+dialog[data-gh-image-peek] [data-peek-stage]:focus-visible { outline-offset: -4px; }
+dialog[data-gh-image-peek] [data-peek-image] {
+  all: unset;
+  display: block;
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+  object-fit: contain;
+  border-radius: 2px;
+  background: repeating-conic-gradient(#20252c 0% 25%, #30363d 0% 50%) 0 0 / 16px 16px;
+}
+
+dialog[data-gh-image-peek][data-size="actual"] [data-peek-image] { max-width: none; max-height: none; }
+dialog[data-gh-image-peek] [data-peek-status] { margin: auto; text-align: center; color: #b1bac4; }
+dialog[data-gh-image-peek] [data-peek-status][data-state="loading"]::before {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto 16px;
+  border: 2px solid #ffffff26;
+  border-top-color: #c4b5fd;
+  border-radius: 50%;
+  animation: gh-image-peek-spin 0.9s linear infinite;
+}
+
+/* Keep load announcements available to screen readers after the image appears. */
+dialog[data-gh-image-peek] [data-peek-status][data-state="ready"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+dialog[data-gh-image-peek] [data-peek-help] { flex: 0 0 auto; margin: 0; padding: 12px 20px; text-align: center; color: #b1bac4; font-size: 12px; }
+@keyframes gh-image-peek-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { dialog[data-gh-image-peek] [data-peek-status]::before { animation: none; } }
+@media (max-width: 600px) {
+  dialog[data-gh-image-peek] [data-peek-toolbar] { gap: 8px; padding: 10px; flex-wrap: wrap; }
+  dialog[data-gh-image-peek] [data-peek-heading] { flex-basis: calc(100% - 64px); }
+  dialog[data-gh-image-peek] [data-peek-toolbar] a { flex: 1; }
+  dialog[data-gh-image-peek] [data-peek-stage] { padding: 12px; }
+  dialog[data-gh-image-peek] [data-peek-help] { padding: 10px; }
+}

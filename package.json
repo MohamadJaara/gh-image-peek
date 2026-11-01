@@ -1,0 +1,15 @@
+{
+  "name": "gh-image-peek",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A small Firefox extension for viewing GitHub pull request images in place.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "lint": "node --check extension/content.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}
