@@ -10,7 +10,8 @@ dialog[data-gh-image-peek] {
   height: 100dvh;
   max-width: none;
   max-height: none;
-  padding: 0;
+  /* Apply display-cutout insets once, around both the toolbar and image area. */
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   border: 0;
   background: transparent;
   color: #f0f6fc;
@@ -77,7 +78,22 @@ dialog[data-gh-image-peek] :focus-visible { outline: 3px solid #a78bfa; outline-
 dialog[data-gh-image-peek] [data-peek-zoom] { position: relative; display: inline-flex; flex: 0 0 auto; border: 1px solid #ffffff38; border-radius: 8px; background: #21262d; }
 dialog[data-gh-image-peek] [data-peek-zoom] > button { padding: 8px 10px; border: 0; background: transparent; }
 dialog[data-gh-image-peek] [data-peek-zoom] > button[aria-label="Zoom presets"] { min-width: 72px; border-right: 1px solid #ffffff38; border-left: 1px solid #ffffff38; border-radius: 0; font-variant-numeric: tabular-nums; }
-dialog[data-gh-image-peek] [data-peek-presets] { position: absolute; top: calc(100% + 8px); right: 0; z-index: 2; width: 208px; padding: 6px; border: 1px solid #8b949e; border-radius: 8px; background: #21262d; box-shadow: 0 8px 24px #0008; }
+dialog[data-gh-image-peek] [data-peek-presets] {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 2;
+  width: 208px;
+  max-height: calc(100vh - 90px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  max-height: calc(100dvh - 90px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  border: 1px solid #8b949e;
+  border-radius: 8px;
+  background: #21262d;
+  box-shadow: 0 8px 24px #0008;
+}
 dialog[data-gh-image-peek] [data-peek-presets] button { display: flex; justify-content: space-between; width: 100%; padding: 8px 10px; border: 0; border-radius: 4px; }
 dialog[data-gh-image-peek] [data-peek-presets] button[aria-pressed="true"] { background: #30363d; }
 dialog[data-gh-image-peek] [data-peek-presets] button[aria-pressed="true"]::after { content: "✓"; margin-left: 8px; }
@@ -89,9 +105,9 @@ dialog[data-gh-image-peek] [data-peek-help-panel] {
   top: calc(100% + 8px);
   right: 56px;
   z-index: 3;
-  width: min(320px, calc(100vw - 32px));
-  max-height: calc(100vh - 90px);
-  max-height: calc(100dvh - 90px);
+  width: min(320px, calc(100vw - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+  max-height: calc(100vh - 90px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  max-height: calc(100dvh - 90px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   overflow: auto;
   overscroll-behavior: contain;
   padding: 16px;
@@ -138,6 +154,8 @@ dialog[data-gh-image-peek][data-size="fit"] [data-single] [data-peek-stage] { to
 dialog[data-gh-image-peek] [data-peek-stage]:focus-visible { outline-offset: -4px; }
 dialog[data-gh-image-peek] [data-peek-image] {
   all: unset;
+  /* Image gestures zoom/pan locally; surrounding controls keep browser gestures. */
+  touch-action: none;
   display: block;
   flex: 0 0 auto;
   width: auto;
@@ -190,8 +208,32 @@ dialog[data-gh-image-peek] [data-peek-sr] { position: absolute; width: 1px; heig
   dialog[data-gh-image-peek] [data-peek-help-panel] { right: 0; }
   dialog[data-gh-image-peek] [data-peek-zoom] { order: 4; }
   dialog[data-gh-image-peek] [data-peek-toolbar] a { order: 5; flex: 1; }
-  dialog[data-gh-image-peek] [data-peek-presets] { left: 0; right: auto; }
-  dialog[data-gh-image-peek] [data-peek-gallery] { grid-template-columns: 44px minmax(0, 1fr) 44px; padding: 0 6px; }
-  dialog[data-gh-image-peek] button[data-peek-nav] { width: 44px; height: 48px; }
+  dialog[data-gh-image-peek] [data-peek-presets] {
+    left: 0;
+    right: auto;
+    max-height: calc(100vh - 140px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - 140px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
   dialog[data-gh-image-peek] [data-peek-stage] { padding: 8px; }
+}
+
+@media (max-width: 600px), (max-height: 500px) and (pointer: coarse) {
+  /* Overlay the arrows instead of taking image width away on a phone. */
+  dialog[data-gh-image-peek] [data-peek-gallery] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    padding: 0;
+  }
+  dialog[data-gh-image-peek] [data-peek-stage],
+  dialog[data-gh-image-peek] button[data-peek-nav] { grid-area: 1 / 1; }
+  dialog[data-gh-image-peek] button[data-peek-nav] {
+    z-index: 1;
+    width: 44px;
+    height: 48px;
+    margin: 0 8px;
+    border-color: #8b949e;
+    background: rgb(13 17 23 / 88%);
+  }
+  dialog[data-gh-image-peek] button[data-peek-nav="previous"] { justify-self: start; }
+  dialog[data-gh-image-peek] button[data-peek-nav="next"] { justify-self: end; }
 }

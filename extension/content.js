@@ -142,6 +142,10 @@
     const help = element("p", { "data-peek-help": "" });
     const shortcutList = element("dl");
     for (const [keys, action] of [
+      ["Swipe ← / →", "Browse fitted images with touch or pen"],
+      ["− / + buttons", "Zoom with touch or mouse"],
+      ["Touch drag", "Pan a zoomed image"],
+      ["Pinch the image", "Zoom the image while controls stay in place"],
       ["← / →", "Browse in Fit; pan when zoomed"],
       ["Ctrl + wheel", "Zoom over the image"],
       ["+ / −", "Zoom with image focused"],
@@ -164,7 +168,7 @@
     const status = element("div", { "data-peek-status": "", role: "status", "aria-live": "polite", "aria-atomic": "true" });
     stage.append(status);
     frame.append(previous, stage, next);
-    const shortcuts = element("p", { "data-peek-sr": "", id: "gh-image-peek-shortcuts" }, "With the image focused: + and − zoom, 0 fits to window, 1 selects actual size. Double-click toggles Fit and 100%. Ctrl plus mouse wheel over the image zooms around the pointer. Drag a zoomed image to pan.");
+    const shortcuts = element("p", { "data-peek-sr": "", id: "gh-image-peek-shortcuts" }, "Swipe horizontally to browse fitted images, or use the previous and next buttons. Pinch the image, or use the zoom buttons or presets to inspect details, then drag to pan. With the image focused: + and − zoom, 0 fits to window, 1 selects actual size. Double-click toggles Fit and 100%. Ctrl plus mouse wheel over the image zooms around the pointer.");
     const zoomStatus = element("div", { "data-peek-sr": "", role: "status", "aria-live": "polite", "aria-atomic": "true" });
     dialog.append(toolbar, frame, shortcuts, zoomStatus);
 
@@ -179,6 +183,13 @@
     let resizeFrame = 0;
     let zoomAnnouncement;
     let pan = null;
+    let backdropStart = false;
+    let suppressSwipeClick = false;
+    let swipe = null;
+    let pinch = null;
+    let touchBlocked = false;
+    const pointers = new Set();
+    const touches = new Map();
     const zoomSteps = [1 / 64, 1 / 32, 1 / 16, 1 / 8, .25, .5, .75, 1, 1.25, 1.5, 2, 3, 4];
     const resizeObserver = new ResizeObserver(() => {
       if (loadState !== "ready") return;
@@ -197,6 +208,7 @@
       cancelAnimationFrame(resizeFrame);
       cancelWheel();
       clearPan();
+      clearTouches();
       clearTimeout(zoomAnnouncement);
       clearTimeout(timer);
       if (picture) picture.onload = picture.onerror = null;
@@ -270,16 +282,16 @@
     function updateHelp() {
       if (loadState === "error") {
         help.textContent = multiple
-          ? "Try “Open original image”, use the arrows to continue, or press Escape."
-          : "Try “Open original image”, or press Escape to return to the pull request.";
+          ? "Try “Open original image”, use the arrows to continue, or close with ×."
+          : "Try “Open original image”, or close with × to return to the pull request.";
       } else if (dialog.dataset.size === "actual") {
         help.textContent = multiple
-          ? "Drag, scroll or arrows to pan · 0 Fit · Screen arrows to browse"
-          : "Drag, scroll or arrows to pan · 0 Fit · Escape to close";
+          ? "Drag or scroll to pan · Select Fit to browse with a swipe · Screen arrows always browse"
+          : "Drag or scroll to pan · Select Fit to see the whole image · Close with ×";
       } else {
         help.textContent = multiple
-          ? "← → to browse · Ctrl+wheel to zoom · Escape to close"
-          : "Ctrl+wheel to zoom · Double-click to inspect · Escape to close";
+          ? "Swipe or use ← → to browse · Use − / + or presets to zoom · Close with ×"
+          : "Use − / + or presets to zoom · Close with ×";
       }
     }
 
@@ -306,6 +318,18 @@
       pan = null;
       dialog.removeAttribute("data-peek-dragging");
       if (previousPan?.node.hasPointerCapture(previousPan.id)) previousPan.node.releasePointerCapture(previousPan.id);
+    }
+
+    function clearTouches() {
+      const captured = [...pointers];
+      pointers.clear();
+      touches.clear();
+      pinch = swipe = null;
+      touchBlocked = backdropStart = false;
+      for (const id of captured) {
+        if (picture?.hasPointerCapture(id)) picture.releasePointerCapture(id);
+        if (stage.hasPointerCapture(id)) stage.releasePointerCapture(id);
+      }
     }
 
     function fitScale() {
@@ -335,13 +359,13 @@
           (focused === zoomOut && zoomOut.disabled)) stage.focus({ preventScroll: true });
     }
 
-    function setZoom(value, { mode = "actual", anchor, preserveScale = false } = {}) {
+    function setZoom(value, { mode = "actual", anchor, imagePoint: pinnedPoint, preserveScale = false } = {}) {
       if (closed || loadState !== "ready") return;
       const fitted = mode === "fit";
       const bounds = stage.getBoundingClientRect();
       const point = anchor || { x: bounds.left + stage.clientLeft + stage.clientWidth / 2, y: bounds.top + stage.clientTop + stage.clientHeight / 2 };
       const oldBounds = picture.getBoundingClientRect();
-      const imagePoint = { x: (point.x - oldBounds.left) / scale, y: (point.y - oldBounds.top) / scale };
+      const imagePoint = pinnedPoint || { x: (point.x - oldBounds.left) / scale, y: (point.y - oldBounds.top) / scale };
       scale = fitted ? fitScale() : Math.min(4, Math.max(preserveScale ? .0001 : fitScale(), value));
       dialog.dataset.size = fitted ? "fit" : "actual";
       picture.style.width = `${picture.naturalWidth * scale}px`;
@@ -356,7 +380,7 @@
         });
       }
       dialog.toggleAttribute("data-peek-can-pan", !fitted && (stage.scrollWidth > stage.clientWidth + 1 || stage.scrollHeight > stage.clientHeight + 1));
-      stage.setAttribute("aria-label", fitted ? "Image fit to window." : `Image at ${Math.round(scale * 100)} percent. Use arrow keys to scroll.`);
+      stage.setAttribute("aria-label", fitted ? "Image fit to window." : `Image at ${Math.round(scale * 100)} percent. Drag or use arrow keys to scroll.`);
       updateZoomControls();
       updateHelp();
       clearTimeout(zoomAnnouncement);
@@ -378,6 +402,7 @@
       const focused = document.activeElement;
       cancelWheel();
       clearPan();
+      clearTouches();
       closePresets();
       closeHelp();
       cancelAnimationFrame(resizeFrame);
@@ -494,7 +519,7 @@
     }, { passive: false });
     stage.addEventListener("dblclick", (event) => {
       if (loadState !== "ready" || event.target !== picture || event.button !== 0 ||
-          event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || event.defaultPrevented) return;
+          event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || event.defaultPrevented || suppressSwipeClick) return;
       event.preventDefault();
       cancelWheel();
       clearPan();
@@ -512,27 +537,59 @@
     dialog.addEventListener("close", () => close());
     // Require both ends of the pointer gesture on empty space so a drag that
     // starts on the image and ends on the backdrop does not dismiss the viewer.
-    let backdropStart = false;
-    let suppressSwipeClick = false;
-    let swipe = null;
-    const pointers = new Set();
     dialog.addEventListener("pointerdown", (event) => {
       if (!zoomControls.contains(event.target)) closePresets();
       if (!helpWrap.contains(event.target)) closeHelp();
       suppressSwipeClick = false;
       backdropStart = event.target === stage || event.target === dialog;
+      const touch = event.pointerType === "touch";
+      const directPointer = touch || event.pointerType === "pen";
+      if (directPointer) pointers.add(event.pointerId);
+      const unmodified = !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+      const imageTouch = touch && event.target === picture && loadState === "ready" &&
+        event.button === 0 && unmodified && Number.isFinite(event.clientX) && Number.isFinite(event.clientY);
+      if (imageTouch) {
+        touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        try { picture.setPointerCapture(event.pointerId); } catch { /* No active pointer. */ }
+      }
+      if (directPointer && pointers.size > 1) {
+        swipe = null;
+        clearPan();
+        backdropStart = false;
+        suppressSwipeClick = true;
+        for (const id of touches.keys()) {
+          try { picture.setPointerCapture(id); } catch { /* No active pointer. */ }
+        }
+        if (!touchBlocked && pointers.size === 2 && touches.size === 2) {
+          const [a, b] = [...touches.values()];
+          const distance = Math.hypot(b.x - a.x, b.y - a.y);
+          if (Number.isFinite(distance) && distance > 0) {
+            const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+            const bounds = picture.getBoundingClientRect();
+            cancelWheel();
+            pinch = {
+              distance, scale,
+              point: { x: (center.x - bounds.left) / scale, y: (center.y - bounds.top) / scale },
+            };
+          }
+        } else pinch = null;
+        // Once a pinch ends, wait for all fingers to lift before allowing a new
+        // drag or gallery swipe. A third pointer also cancels the transform.
+        touchBlocked = true;
+        return;
+      }
+      if (directPointer && touchBlocked) return;
       if (event.target === picture && loadState === "ready" && event.button === 0) {
         stage.focus({ preventScroll: true });
-        if (event.pointerType === "mouse" && dialog.hasAttribute("data-peek-can-pan") &&
-            !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+        if ((event.pointerType === "mouse" || imageTouch || event.pointerType === "pen") &&
+            dialog.hasAttribute("data-peek-can-pan") && unmodified) {
           pan = { id: event.pointerId, node: picture, x: event.clientX, y: event.clientY, left: stage.scrollLeft, top: stage.scrollTop };
           dialog.setAttribute("data-peek-dragging", "");
           try { picture.setPointerCapture(event.pointerId); } catch { /* No active pointer. */ }
           event.preventDefault();
         }
       }
-      if (!["touch", "pen"].includes(event.pointerType)) return;
-      pointers.add(event.pointerId);
+      if (!directPointer) return;
       if (!multiple || dialog.dataset.size !== "fit" || pointers.size !== 1 ||
           !event.isPrimary || event.button !== 0 || !stage.contains(event.target)) {
         swipe = null;
@@ -541,11 +598,29 @@
       swipe = { id: event.pointerId, x: event.clientX, y: event.clientY };
       // Capture lets a swipe finish outside the image area. Synthetic events in
       // tests or canceled pointers may not have an active pointer to capture.
-      try { stage.setPointerCapture(event.pointerId); } catch { /* No active pointer. */ }
+      try { (imageTouch ? picture : stage).setPointerCapture(event.pointerId); } catch { /* No active pointer. */ }
     });
     dialog.addEventListener("pointermove", (event) => {
+      if (touches.has(event.pointerId) && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+        touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (pinch) {
+          const [a, b] = [...touches.values()];
+          const distance = Math.hypot(b.x - a.x, b.y - a.y);
+          if (Number.isFinite(distance)) {
+            const value = pinch.scale * distance / pinch.distance;
+            setZoom(value, {
+              mode: value <= fitScale() + .00001 ? "fit" : "actual",
+              anchor: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+              imagePoint: pinch.point,
+            });
+          }
+          return;
+        }
+      }
+      if (touchBlocked && ["touch", "pen"].includes(event.pointerType)) return;
       if (pan?.id === event.pointerId) {
         backdropStart = false;
+        if (Math.hypot(event.clientX - pan.x, event.clientY - pan.y) > 8) suppressSwipeClick = true;
         stage.scrollTo({ left: pan.left + pan.x - event.clientX, top: pan.top + pan.y - event.clientY, behavior: "instant" });
       }
       if (swipe?.id === event.pointerId &&
@@ -554,6 +629,14 @@
     dialog.addEventListener("pointerup", (event) => {
       if (pan?.id === event.pointerId) clearPan();
       pointers.delete(event.pointerId);
+      touches.delete(event.pointerId);
+      if (touchBlocked) {
+        pinch = swipe = null;
+        backdropStart = false;
+        suppressSwipeClick = true;
+        if (!pointers.size) touchBlocked = false;
+        return;
+      }
       if (swipe?.id !== event.pointerId) return;
       const dx = event.clientX - swipe.x;
       const dy = event.clientY - swipe.y;
@@ -567,6 +650,10 @@
     dialog.addEventListener("pointercancel", (event) => {
       if (pan?.id === event.pointerId) clearPan();
       pointers.delete(event.pointerId);
+      touches.clear();
+      pinch = null;
+      touchBlocked = pointers.size > 0;
+      suppressSwipeClick = true;
       swipe = null;
       backdropStart = false;
     });
