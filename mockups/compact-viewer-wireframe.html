@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GH Image Peek · More room for images</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --peek-ink: var(--foreground, light-dark(#202124, #ededed));
+  --peek-page: var(--background, light-dark(#ffffff, #161618));
+  --peek-muted: color-mix(in srgb, var(--peek-ink) 68%, var(--peek-page));
+  --peek-surface: color-mix(in srgb, var(--peek-page) 94%, var(--peek-ink));
+  --peek-hover: color-mix(in srgb, var(--peek-page) 84%, var(--peek-ink));
+  --peek-line: color-mix(in srgb, var(--peek-page) 70%, var(--peek-ink));
+  --peek-shot: color-mix(in srgb, var(--peek-page) 84%, var(--peek-ink));
+}
+html, body { margin: 0; padding: 0; background: transparent; }
+#peek-compact-wireframe { color: var(--peek-ink); font: 14px/1.5 var(--font-sans, system-ui, sans-serif); }
+#peek-compact-wireframe * { box-sizing: border-box; }
+#peek-compact-wireframe [hidden] { display: none !important; }
+#peek-compact-wireframe button { font: inherit; color: inherit; cursor: pointer; }
+#peek-compact-wireframe button:focus-visible { outline: 2px solid var(--peek-ink); outline-offset: 3px; }
+#peek-compact-wireframe .comparison { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-bottom: 14px; }
+#peek-compact-wireframe .comparison > span { font-size: 12px; color: var(--peek-muted); margin-right: 4px; }
+#peek-compact-wireframe .comparison button { padding: 7px 12px; min-height: 36px; border: 1px solid var(--peek-line); border-radius: 6px; background: transparent; }
+#peek-compact-wireframe .comparison button[aria-pressed="true"] { background: var(--peek-hover); }
+#peek-compact-wireframe .scene { position: relative; height: 620px; overflow: hidden; border: 1px solid var(--peek-line); border-radius: var(--radius, 12px); background: var(--peek-page); }
+#peek-compact-wireframe .page { padding: 26px; opacity: .12; }
+#peek-compact-wireframe .repo { margin-bottom: 24px; }
+#peek-compact-wireframe .pr-title { font-size: 22px; margin-bottom: 24px; }
+#peek-compact-wireframe .page-line { height: 10px; width: 70%; margin-top: 24px; background: var(--peek-ink); border-radius: 3px; }
+#peek-compact-wireframe .viewer { position: absolute; inset: 0; display: flex; flex-direction: column; }
+#peek-compact-wireframe .toolbar { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--peek-line); background: var(--peek-surface); }
+#peek-compact-wireframe .close { flex: 0 0 44px; width: 44px; height: 44px; padding: 0; border: 1px solid var(--peek-line); border-radius: 6px; background: transparent; font-size: 25px; }
+#peek-compact-wireframe .heading { flex: 1; min-width: 0; }
+#peek-compact-wireframe .heading strong { display: block; font-weight: 500; }
+#peek-compact-wireframe .meta { display: flex; align-items: center; min-width: 0; gap: 10px; font-size: 12px; }
+#peek-compact-wireframe .filename { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--peek-muted); }
+#peek-compact-wireframe .header-counter { flex: 0 0 auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#peek-compact-wireframe .zoom { position: relative; display: flex; flex: 0 0 auto; border: 1px solid var(--peek-line); border-radius: 6px; background: var(--peek-surface); }
+#peek-compact-wireframe .zoom > button { min-height: 44px; min-width: 44px; padding: 7px 10px; border: 0; border-radius: 6px; background: transparent; }
+#peek-compact-wireframe .zoom .zoom-value { min-width: 68px; border-left: 1px solid var(--peek-line); border-right: 1px solid var(--peek-line); border-radius: 0; font-variant-numeric: tabular-nums; }
+#peek-compact-wireframe .zoom > button:disabled { opacity: .3; cursor: default; }
+#peek-compact-wireframe .original { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 7px 12px; border: 1px solid var(--peek-line); border-radius: 6px; white-space: nowrap; color: var(--peek-muted); }
+#peek-compact-wireframe .help-wrap { position: relative; flex: 0 0 auto; }
+#peek-compact-wireframe .help-button { width: 44px; height: 44px; padding: 0; border: 1px solid var(--peek-line); border-radius: 6px; background: transparent; font-size: 18px; }
+#peek-compact-wireframe .help-panel, #peek-compact-wireframe .presets { position: absolute; right: 0; top: calc(100% + 10px); z-index: 3; padding: 16px; border: 1px solid var(--peek-line); border-radius: 8px; background: var(--peek-surface); }
+#peek-compact-wireframe .help-panel { width: min(306px, calc(100vw - 28px)); }
+#peek-compact-wireframe .help-panel strong { font-weight: 500; }
+#peek-compact-wireframe .help-panel dl { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 18px; row-gap: 10px; margin: 16px 0; font-size: 12px; }
+#peek-compact-wireframe .help-panel dt, #peek-compact-wireframe .help-panel dd { margin: 0; }
+#peek-compact-wireframe .help-panel dd, #peek-compact-wireframe .help-panel p { color: var(--peek-muted); }
+#peek-compact-wireframe .help-panel p { padding-top: 12px; margin: 0; border-top: 1px solid var(--peek-line); font-size: 12px; }
+#peek-compact-wireframe kbd { font: inherit; border: 1px solid var(--peek-line); border-radius: 3px; padding: 0 4px; color: var(--peek-ink); }
+#peek-compact-wireframe .presets { width: 202px; padding: 6px; }
+#peek-compact-wireframe .presets button { display: block; width: 100%; min-height: 44px; padding: 7px 10px; text-align: left; border: 0; border-radius: 4px; background: transparent; }
+#peek-compact-wireframe .gallery { display: grid; grid-template-columns: 52px minmax(0, 1fr) 52px; gap: 8px; flex: 1 1 0; min-height: 0; padding: 0 10px; }
+#peek-compact-wireframe .nav { align-self: center; width: 48px; height: 52px; border: 1px solid var(--peek-line); border-radius: 6px; background: var(--peek-surface); font-size: 25px; }
+#peek-compact-wireframe .nav:disabled { opacity: .28; cursor: default; }
+#peek-compact-wireframe button:hover:not(:disabled) { background: var(--peek-hover); }
+#peek-compact-wireframe .stage { position: relative; display: flex; min-width: 0; min-height: 0; padding: 12px; overflow: auto; scrollbar-color: var(--peek-line) var(--peek-page); }
+#peek-compact-wireframe .canvas { position: relative; flex: 0 0 auto; margin: auto; }
+#peek-compact-wireframe .phone { position: absolute; top: 0; left: 0; width: 360px; height: 800px; transform-origin: top left; border: 1px solid var(--peek-line); background: var(--peek-shot); overflow: hidden; }
+#peek-compact-wireframe .phone-status { display: flex; justify-content: space-between; padding: 16px; font-size: 13px; }
+#peek-compact-wireframe .phone-title { padding: 26px 22px; text-align: center; font-size: 22px; border-bottom: 1px solid var(--peek-line); }
+#peek-compact-wireframe .phone-today { padding: 24px 18px 14px; font-size: 14px; }
+#peek-compact-wireframe .meeting { display: flex; gap: 14px; padding: 18px; border-bottom: 1px solid var(--peek-line); }
+#peek-compact-wireframe .calendar { border: 1px solid var(--peek-line); width: 32px; height: 32px; border-radius: 6px; }
+#peek-compact-wireframe .meeting-time { font-size: 12px; color: var(--peek-muted); }
+#peek-compact-wireframe .sheet { position: absolute; bottom: 0; left: 0; right: 0; border-top: 1px solid var(--peek-line); border-radius: 18px 18px 0 0; background: var(--peek-surface); }
+#peek-compact-wireframe .handle { width: 42px; height: 4px; border-radius: 4px; margin: 12px auto; background: var(--peek-line); }
+#peek-compact-wireframe .sheet-row { padding: 16px 24px; border-bottom: 1px solid var(--peek-line); font-size: 15px; }
+#peek-compact-wireframe .footer { flex: 0 0 auto; text-align: center; }
+#peek-compact-wireframe .footer-info { padding-top: 8px; }
+#peek-compact-wireframe .footer-counter { font-variant-numeric: tabular-nums; }
+#peek-compact-wireframe .scope { margin: 2px 0 0; color: var(--peek-muted); font-size: 12px; }
+#peek-compact-wireframe .hints { margin: 0; padding: 12px 20px; color: var(--peek-muted); font-size: 12px; }
+#peek-compact-wireframe .scene[data-layout="current"] .stage { padding: 24px; }
+#peek-compact-wireframe .closed { position: absolute; inset: 0; display: grid; place-items: center; }
+#peek-compact-wireframe .reopen { padding: 12px 18px; border: 1px solid var(--peek-line); border-radius: 6px; background: var(--peek-surface); }
+@media (max-width: 560px) {
+  #peek-compact-wireframe .toolbar { flex-wrap: wrap; gap: 8px; padding: 10px; }
+  #peek-compact-wireframe .close { order: 1; }
+  #peek-compact-wireframe .heading { order: 2; flex-basis: calc(100% - 104px); }
+  #peek-compact-wireframe .help-wrap { order: 3; }
+  #peek-compact-wireframe .zoom { order: 4; }
+  #peek-compact-wireframe .original { order: 5; flex: 1; }
+  #peek-compact-wireframe .scene[data-layout="current"] .heading { flex-basis: calc(100% - 60px); }
+  #peek-compact-wireframe .zoom .presets { left: 0; right: auto; }
+  #peek-compact-wireframe .gallery { grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 2px; padding: 0 6px; }
+  #peek-compact-wireframe .nav { width: 44px; height: 48px; }
+  #peek-compact-wireframe .stage { padding: 8px; }
+}
+</style>
+</head>
+<body>
+<div id="peek-compact-wireframe">
+  <div class="comparison" role="group" aria-label="Compare viewer layouts">
+    <span>Same window, more image</span>
+    <button type="button" data-layout="current" aria-pressed="false">Current</button>
+    <button type="button" data-layout="compact" aria-pressed="true">More image space</button>
+  </div>
+  <div class="scene" data-layout="compact">
+    <div class="page" aria-hidden="true"><div class="repo">acme / dashboard</div><div class="pr-title">Update the meetings flow #42</div><div>Conversation &nbsp; · &nbsp; Files changed</div><div class="page-line"></div><div class="page-line"></div></div>
+    <div class="viewer" role="group" aria-label="Compact image viewer wireframe">
+      <div class="toolbar">
+        <button class="close" type="button" aria-label="Close image viewer">×</button>
+        <div class="heading"><strong>Image peek</strong><div class="meta"><span class="filename">Screenshot_20261023_133800</span><span class="header-counter" role="status" aria-live="polite" aria-label="Image 1 of 2">1 / 2</span></div></div>
+        <div class="zoom" role="group" aria-label="Image zoom">
+          <button class="minus" type="button" aria-label="Zoom out" disabled>−</button>
+          <button class="zoom-value" type="button" aria-label="Zoom presets" aria-expanded="false">Fit ▾</button>
+          <button class="plus" type="button" aria-label="Zoom in">+</button>
+          <div class="presets" role="group" aria-label="Zoom presets" hidden><button type="button" data-scale="fit">Fit to window</button><button type="button" data-scale="1">100% · actual size</button><button type="button" data-scale="2">200%</button><button type="button" data-scale="4">400%</button></div>
+        </div>
+        <span class="original">Open original ↗</span>
+        <div class="help-wrap"><button class="help-button" type="button" aria-label="Keyboard shortcuts" aria-expanded="false" aria-controls="peek-help-panel">?</button>
+          <div class="help-panel" id="peek-help-panel" role="region" aria-label="Keyboard shortcuts" hidden>
+            <strong>Shortcuts &amp; gestures</strong>
+            <dl><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Browse in Fit; pan when zoomed</dd><dt>Ctrl + wheel</dt><dd>Zoom over the image</dd><dt><kbd>+</kbd> <kbd>−</kbd></dt><dd>Zoom with image focused</dd><dt><kbd>0</kbd> / <kbd>1</kbd></dt><dd>Fit / actual size</dd><dt>Double-click</dt><dd>Fit ↔ 100%</dd><dt>Drag</dt><dd>Pan a zoomed image</dd><dt><kbd>Esc</kbd></dt><dd>Close help, then the viewer</dd></dl>
+            <p>Browsing images currently loaded on this PR page. New images appear when you reopen the viewer.</p>
+          </div>
+        </div>
+      </div>
+      <div class="gallery">
+        <button class="nav previous" type="button" aria-label="Previous image" disabled>←</button>
+        <div class="stage"><div class="canvas"><div class="phone" role="img" aria-label="Tall wireframe screenshot of a meeting action sheet">
+          <div class="phone-status"><span>9:41</span><span>Wi-Fi · 100%</span></div><div class="phone-title">Meetings</div><div class="phone-today">Today</div>
+          <div class="meeting"><div class="calendar"></div><div><div>Team sync</div><div class="meeting-time">2:00 PM – 3:00 PM</div></div></div>
+          <div class="sheet"><div class="handle"></div><div class="sheet-row">Team sync</div><div class="sheet-row">Join now</div><div class="sheet-row">Edit meeting</div><div class="sheet-row">Meeting link</div><div class="sheet-row">Delete meeting</div></div>
+        </div></div></div>
+        <button class="nav next" type="button" aria-label="Next image">→</button>
+      </div>
+      <div class="footer" hidden><div class="footer-info"><div class="footer-counter">1 of 2</div><p class="scope">Images loaded on this PR page</p></div><p class="hints">← → to browse · Ctrl+wheel to zoom · Escape to close</p></div>
+    </div>
+    <div class="closed" hidden><button class="reopen" type="button">Open screenshot</button></div>
+  </div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById('peek-compact-wireframe');
+  const scene = root.querySelector('.scene');
+  const viewer = root.querySelector('.viewer');
+  const stage = root.querySelector('.stage');
+  const canvas = root.querySelector('.canvas');
+  const phone = root.querySelector('.phone');
+  const footer = root.querySelector('.footer');
+  const helpWrap = root.querySelector('.help-wrap');
+  const help = root.querySelector('.help-button');
+  const helpPanel = root.querySelector('.help-panel');
+  const presets = root.querySelector('.presets');
+  const value = root.querySelector('.zoom-value');
+  const counter = root.querySelector('.header-counter');
+  let fitted = true;
+  let scale = 1;
+  let index = 0;
+
+  function fitScale() {
+    const css = getComputedStyle(stage);
+    return Math.min(1, (stage.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight)) / 360, (stage.clientHeight - parseFloat(css.paddingTop) - parseFloat(css.paddingBottom)) / 800);
+  }
+  function paint() {
+    if (fitted) scale = fitScale();
+    canvas.style.width = `${360 * scale}px`; canvas.style.height = `${800 * scale}px`;
+    phone.style.transform = `scale(${scale})`;
+    value.textContent = fitted ? 'Fit ▾' : `${Math.round(scale * 100)}% ▾`;
+    root.querySelector('.minus').disabled = scale <= fitScale() + .001;
+    root.querySelector('.plus').disabled = scale >= 4;
+  }
+  function fit() { fitted = true; paint(); stage.scrollTo(0, 0); }
+  function closeHelp(focus = false) { helpPanel.hidden = true; help.setAttribute('aria-expanded', 'false'); if (focus) help.focus({ preventScroll: true }); }
+  function closePresets() { presets.hidden = true; value.setAttribute('aria-expanded', 'false'); }
+  for (const button of root.querySelectorAll('button[data-layout]')) button.addEventListener('click', () => {
+    const compact = button.dataset.layout === 'compact';
+    scene.dataset.layout = button.dataset.layout;
+    footer.hidden = compact; helpWrap.hidden = counter.hidden = !compact;
+    for (const choice of root.querySelectorAll('button[data-layout]')) choice.setAttribute('aria-pressed', String(choice === button));
+    closeHelp(); closePresets(); fit();
+  });
+  help.addEventListener('click', () => { closePresets(); helpPanel.hidden = !helpPanel.hidden; help.setAttribute('aria-expanded', String(!helpPanel.hidden)); });
+  value.addEventListener('click', () => { closeHelp(); presets.hidden = !presets.hidden; value.setAttribute('aria-expanded', String(!presets.hidden)); });
+  for (const button of presets.querySelectorAll('button')) button.addEventListener('click', () => {
+    fitted = button.dataset.scale === 'fit'; scale = fitted ? fitScale() : Number(button.dataset.scale); paint(); stage.scrollTo(0, 0); closePresets();
+  });
+  root.querySelector('.plus').addEventListener('click', () => { fitted = false; scale = Math.min(4, scale * 1.25); paint(); });
+  root.querySelector('.minus').addEventListener('click', () => { scale = Math.max(fitScale(), scale / 1.25); fitted = scale <= fitScale() + .001; paint(); });
+  function navigate(delta) {
+    index = Math.min(1, Math.max(0, index + delta));
+    counter.textContent = `${index + 1} / 2`; counter.setAttribute('aria-label', `Image ${index + 1} of 2`);
+    root.querySelector('.footer-counter').textContent = `${index + 1} of 2`;
+    root.querySelector('.filename').textContent = ['Screenshot_20261023_133800', 'Screenshot_20261023_134015'][index];
+    root.querySelector('.phone-title').textContent = ['Meetings', 'Meeting details'][index];
+    root.querySelector('.previous').disabled = index === 0; root.querySelector('.next').disabled = index === 1;
+    fit();
+  }
+  root.querySelector('.previous').addEventListener('click', () => navigate(-1));
+  root.querySelector('.next').addEventListener('click', () => navigate(1));
+  root.querySelector('.close').addEventListener('click', () => { viewer.hidden = true; root.querySelector('.closed').hidden = false; });
+  root.querySelector('.reopen').addEventListener('click', () => { viewer.hidden = false; root.querySelector('.closed').hidden = true; fit(); });
+  document.addEventListener('pointerdown', (event) => { if (!helpWrap.contains(event.target)) closeHelp(); if (!root.querySelector('.zoom').contains(event.target)) closePresets(); });
+  document.addEventListener('keydown', (event) => {
+    if (viewer.hidden || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key === 'Escape') { event.preventDefault(); if (!helpPanel.hidden) closeHelp(true); else if (!presets.hidden) { closePresets(); value.focus({ preventScroll: true }); } else root.querySelector('.close').click(); }
+    if (fitted && helpPanel.hidden && presets.hidden && ['ArrowLeft', 'ArrowRight'].includes(event.key) && !event.target.closest('.comparison')) { event.preventDefault(); navigate(event.key === 'ArrowRight' ? 1 : -1); }
+  });
+  new ResizeObserver(() => { if (fitted && !viewer.hidden) paint(); }).observe(stage);
+  fit();
+})();
+</script>
+</body>
+</html>

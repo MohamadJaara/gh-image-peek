@@ -61,7 +61,7 @@ async function actualSize(page) {
 }
 
 async function expectCurrent(page, name, position) {
-  await expect(counter(page)).toHaveText(`${position} of 4`);
+  await expect(counter(page)).toHaveText(`${position} / 4`);
   await expect(image(page)).toHaveAttribute('src', imageURL(name));
   await expect(original(page)).toHaveAttribute('href', imageURL(name));
   await expect(image(page)).toBeVisible();
@@ -104,7 +104,7 @@ test('opening a duplicate keeps the clicked description and restores that origin
   await opener.focus();
   const before = await page.evaluate(() => ({ x: scrollX, y: scrollY }));
   await opener.click();
-  await expect(counter(page)).toHaveText('1 of 4');
+  await expect(counter(page)).toHaveText('1 / 4');
   await expect(image(page)).toHaveAttribute('alt', 'Duplicate screenshot');
   await next(page).click();
   await expectCurrent(page, 'b', 2);
@@ -175,17 +175,17 @@ test('gallery controls participate in keyboard focus containment and boundary ch
 test('reopening refreshes the gallery for newly loaded comments without changing an active snapshot', async ({ page }) => {
   await setup(page);
   await page.locator('#first').click();
-  await expect(counter(page)).toHaveText('1 of 4');
+  await expect(counter(page)).toHaveText('1 / 4');
   await page.evaluate(({ html }) => {
     const section = document.createElement('section');
     section.className = 'markdown-body';
     section.innerHTML = html;
     document.querySelector('main').append(section);
   }, { html: preview('new-comment', 'new', 'New comment screenshot') });
-  await expect(counter(page)).toHaveText('1 of 4');
+  await expect(counter(page)).toHaveText('1 / 4');
   await page.keyboard.press('Escape');
   await page.locator('#new-comment').click();
-  await expect(counter(page)).toHaveText('5 of 5');
+  await expect(counter(page)).toHaveText('5 / 5');
   await expect(image(page)).toHaveAttribute('alt', 'New comment screenshot');
   await expect(next(page)).toBeDisabled();
 });
@@ -194,12 +194,12 @@ test('failed images can be skipped and each image has its own original link', as
   await setup(page, { body: `<section class="markdown-body">${preview('first', 'a')}${preview('broken', 'broken')}${preview('last', 'c')}</section>` });
   await page.locator('#first').click();
   await next(page).click();
-  await expect(counter(page)).toHaveText('2 of 3');
+  await expect(counter(page)).toHaveText('2 / 3');
   await expect(dialog(page).getByText('This image could not be loaded.', { exact: true })).toBeVisible();
   await expect(original(page)).toHaveAttribute('href', imageURL('broken'));
   await expect(next(page)).toBeEnabled();
   await page.keyboard.press('ArrowRight');
-  await expect(counter(page)).toHaveText('3 of 3');
+  await expect(counter(page)).toHaveText('3 / 3');
   await expect(image(page)).toBeVisible();
   await expect(image(page)).toHaveAttribute('src', imageURL('c'));
   await expect(original(page)).toHaveAttribute('href', imageURL('c'));
@@ -217,7 +217,7 @@ test('switching away from a slow image ignores its stale callbacks and its old t
     const obsoleteImage = await image(page).elementHandle();
     await page.clock.fastForward(20_000);
     await next(page).click();
-    await expect(counter(page)).toHaveText('2 of 2');
+    await expect(counter(page)).toHaveText('2 / 2');
     await expect(image(page)).toBeVisible();
     await expect(image(page)).toHaveAttribute('src', imageURL('b'));
     release();

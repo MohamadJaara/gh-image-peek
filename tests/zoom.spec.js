@@ -303,7 +303,7 @@ test('small images are never enlarged in Fit and explicit actual size remains in
   await choose(page, '100% · actual size');
   await expect(dialog(page)).toHaveAttribute('data-size', 'actual');
   await page.keyboard.press('ArrowRight');
-  await expect(dialog(page).locator('[data-peek-counter]')).toHaveText('1 of 2');
+  await expect(dialog(page).locator('[data-peek-counter]')).toHaveText('1 / 2');
   await expect(image(page)).toHaveAttribute('src', imageURL('small'));
 });
 

@@ -1,6 +1,6 @@
 {
   "name": "gh-image-peek",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "A small Firefox extension for viewing GitHub pull request images in place.",

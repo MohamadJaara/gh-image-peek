@@ -119,8 +119,12 @@
     const toolbar = element("div", { "data-peek-toolbar": "" });
     const closeButton = element("button", { type: "button", "aria-label": "Close image viewer", title: "Close (Escape)" }, "×");
     const heading = element("div", { "data-peek-heading": "" });
-    const caption = element("span", {}, image.alt);
-    heading.append(element("strong", {}, "Image peek"), caption);
+    const caption = element("span", { "data-peek-caption": "", title: image.alt }, image.alt);
+    const meta = element("div", { "data-peek-meta": "" });
+    const counter = element("span", { "data-peek-counter": "", role: "status", "aria-live": "polite", "aria-atomic": "true" });
+    counter.hidden = !multiple;
+    meta.append(caption, counter);
+    heading.append(element("strong", {}, "Image peek"), meta);
     const zoomControls = element("div", { "data-peek-zoom": "", role: "group", "aria-label": "Image zoom" });
     const zoomOut = element("button", { type: "button", disabled: "", "aria-label": "Zoom out", title: "Zoom out (− with image focused)" }, "−");
     const zoomPresets = element("button", { type: "button", disabled: "", "aria-label": "Zoom presets", "aria-expanded": "false", "aria-controls": "gh-image-peek-presets" }, "Fit ▾");
@@ -132,7 +136,24 @@
     presets.append(...presetButtons);
     zoomControls.append(zoomOut, zoomPresets, zoomIn, presets);
     const original = element("a", { href: image.url, target: "_blank", rel: "noopener noreferrer", "aria-label": "Open original image" }, "Open original");
-    toolbar.append(closeButton, heading, zoomControls, original);
+    const helpWrap = element("div", { "data-peek-help-wrap": "" });
+    const helpButton = element("button", { type: "button", "data-peek-help-button": "", "aria-label": "Keyboard shortcuts", "aria-expanded": "false", "aria-controls": "gh-image-peek-help-panel", title: "Keyboard shortcuts and gestures" }, "?");
+    const helpPanel = element("div", { "data-peek-help-panel": "", id: "gh-image-peek-help-panel", role: "region", "aria-label": "Keyboard shortcuts", tabindex: "0", hidden: "" });
+    const help = element("p", { "data-peek-help": "" });
+    const shortcutList = element("dl");
+    for (const [keys, action] of [
+      ["← / →", "Browse in Fit; pan when zoomed"],
+      ["Ctrl + wheel", "Zoom over the image"],
+      ["+ / −", "Zoom with image focused"],
+      ["0 / 1", "Fit / actual size with image focused"],
+      ["Double-click", "Toggle Fit and 100%"],
+      ["Drag", "Pan a zoomed image"],
+      ["Escape", "Close this panel, then the viewer"],
+    ]) shortcutList.append(element("dt", {}, keys), element("dd", {}, action));
+    helpPanel.append(element("strong", {}, "Shortcuts & gestures"), shortcutList, help,
+      element("p", { "data-peek-scope": "" }, "Browsing images currently loaded on this PR page. New images appear when you reopen the viewer."));
+    helpWrap.append(helpButton, helpPanel);
+    toolbar.append(closeButton, heading, zoomControls, original, helpWrap);
 
     const frame = element("div", { "data-peek-gallery": "" });
     if (!multiple) frame.setAttribute("data-single", "");
@@ -143,16 +164,9 @@
     const status = element("div", { "data-peek-status": "", role: "status", "aria-live": "polite", "aria-atomic": "true" });
     stage.append(status);
     frame.append(previous, stage, next);
-    const footer = element("div", { "data-peek-footer": "" });
-    const info = element("div", { "data-peek-info": "" });
-    info.hidden = !multiple;
-    const counter = element("div", { "data-peek-counter": "", role: "status", "aria-label": "Image position", "aria-live": "polite", "aria-atomic": "true" });
-    info.append(counter, element("p", { "data-peek-scope": "" }, "Images loaded on this PR page"));
-    const help = element("p", { "data-peek-help": "" });
     const shortcuts = element("p", { "data-peek-sr": "", id: "gh-image-peek-shortcuts" }, "With the image focused: + and − zoom, 0 fits to window, 1 selects actual size. Double-click toggles Fit and 100%. Ctrl plus mouse wheel over the image zooms around the pointer. Drag a zoomed image to pan.");
     const zoomStatus = element("div", { "data-peek-sr": "", role: "status", "aria-live": "polite", "aria-atomic": "true" });
-    footer.append(info, help, shortcuts, zoomStatus);
-    dialog.append(toolbar, frame, footer);
+    dialog.append(toolbar, frame, shortcuts, zoomStatus);
 
     let timer;
     let closed = false;
@@ -217,10 +231,11 @@
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopImmediatePropagation();
-        if (!presets.hidden) closePresets(true);
+        if (!helpPanel.hidden) closeHelp(true);
+        else if (!presets.hidden) closePresets(true);
         else close();
       } else if (event.key === "Tab") {
-        const stops = [...dialog.querySelectorAll('button:not(:disabled), a[href], [data-peek-stage]')]
+        const stops = [...dialog.querySelectorAll('button:not(:disabled), a[href], [data-peek-stage], [data-peek-help-panel]')]
           .filter((node) => node.getClientRects().length);
         const focusedIndex = stops.indexOf(document.activeElement);
         if (event.shiftKey && focusedIndex <= 0) {
@@ -232,7 +247,7 @@
         }
         // Do not let GitHub's single-key shortcuts act on the page behind us.
         event.stopPropagation();
-      } else if (loadState === "ready" && document.activeElement === stage && presets.hidden &&
+      } else if (loadState === "ready" && document.activeElement === stage && presets.hidden && helpPanel.hidden &&
           !event.defaultPrevented && !event.isComposing && !event.ctrlKey && !event.metaKey && !event.altKey &&
           ["+", "=", "-", "0", "1"].includes(event.key)) {
         event.preventDefault();
@@ -241,7 +256,7 @@
         if (event.key === "0") setZoom(scale, { mode: "fit" });
         else if (event.key === "1") setZoom(1);
         else stepZoom(event.key === "-" ? -1 : 1);
-      } else if (presets.hidden && multiple && dialog.dataset.size === "fit" && !event.isComposing &&
+      } else if (presets.hidden && helpPanel.hidden && multiple && dialog.dataset.size === "fit" && !event.isComposing &&
           !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey &&
           ["ArrowLeft", "ArrowRight"].includes(event.key)) {
         event.preventDefault();
@@ -272,6 +287,12 @@
       presets.hidden = true;
       zoomPresets.setAttribute("aria-expanded", "false");
       if (focus) zoomPresets.focus({ preventScroll: true });
+    }
+
+    function closeHelp(focus = false) {
+      helpPanel.hidden = true;
+      helpButton.setAttribute("aria-expanded", "false");
+      if (focus) helpButton.focus({ preventScroll: true });
     }
 
     function cancelWheel() {
@@ -358,6 +379,7 @@
       cancelWheel();
       clearPan();
       closePresets();
+      closeHelp();
       cancelAnimationFrame(resizeFrame);
       clearTimeout(zoomAnnouncement);
       zoomStatus.textContent = "";
@@ -373,8 +395,10 @@
       picture = loading;
       stage.append(loading);
       caption.textContent = current.alt;
+      caption.title = current.alt;
       original.href = current.url;
-      counter.textContent = `${index + 1} of ${gallery.images.length}`;
+      counter.textContent = `${index + 1} / ${gallery.images.length}`;
+      counter.setAttribute("aria-label", `Image ${index + 1} of ${gallery.images.length}`);
       previous.disabled = index === 0;
       next.disabled = index === gallery.images.length - 1;
       dialog.dataset.size = "fit";
@@ -434,8 +458,14 @@
     zoomOut.addEventListener("click", () => { cancelWheel(); stepZoom(-1); });
     zoomIn.addEventListener("click", () => { cancelWheel(); stepZoom(1); });
     zoomPresets.addEventListener("click", () => {
+      closeHelp();
       presets.hidden = !presets.hidden;
       zoomPresets.setAttribute("aria-expanded", String(!presets.hidden));
+    });
+    helpButton.addEventListener("click", () => {
+      closePresets();
+      helpPanel.hidden = !helpPanel.hidden;
+      helpButton.setAttribute("aria-expanded", String(!helpPanel.hidden));
     });
     for (const button of presetButtons) button.addEventListener("click", () => {
       cancelWheel();
@@ -475,7 +505,8 @@
     closeButton.addEventListener("click", () => close());
     dialog.addEventListener("cancel", (event) => {
       event.preventDefault();
-      if (!presets.hidden) closePresets(true);
+      if (!helpPanel.hidden) closeHelp(true);
+      else if (!presets.hidden) closePresets(true);
       else close();
     });
     dialog.addEventListener("close", () => close());
@@ -487,6 +518,7 @@
     const pointers = new Set();
     dialog.addEventListener("pointerdown", (event) => {
       if (!zoomControls.contains(event.target)) closePresets();
+      if (!helpWrap.contains(event.target)) closeHelp();
       suppressSwipeClick = false;
       backdropStart = event.target === stage || event.target === dialog;
       if (event.target === picture && loadState === "ready" && event.button === 0) {
