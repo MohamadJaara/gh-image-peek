@@ -55,6 +55,11 @@ const next = (page) => dialog(page).getByRole('button', { name: 'Next image', ex
 const stage = (page) => dialog(page).locator('[data-peek-stage]');
 const original = (page) => dialog(page).getByRole('link', { name: 'Open original image', exact: true });
 
+async function actualSize(page) {
+  await dialog(page).getByRole('button', { name: 'Zoom presets', exact: true }).click();
+  await dialog(page).getByRole('button', { name: '100% · actual size', exact: true }).click();
+}
+
 async function expectCurrent(page, name, position) {
   await expect(counter(page)).toHaveText(`${position} of 4`);
   await expect(image(page)).toHaveAttribute('src', imageURL(name));
@@ -131,7 +136,7 @@ test('modified arrow keys do not navigate the gallery', async ({ page }) => {
 test('Actual size keeps arrow-key panning while screen arrows reset the next image to Fit', async ({ page }) => {
   await setup(page);
   await page.locator('#second').click();
-  await dialog(page).getByRole('button', { name: 'Actual size', exact: true }).click();
+  await actualSize(page);
   await expect(stage(page)).toBeFocused();
   await page.keyboard.press('ArrowRight');
   await expect.poll(() => stage(page).evaluate((node) => node.scrollLeft)).toBeGreaterThan(0);
@@ -139,7 +144,7 @@ test('Actual size keeps arrow-key panning while screen arrows reset the next ima
   await next(page).click();
   await expectCurrent(page, 'c', 3);
   await expect(dialog(page)).toHaveAttribute('data-size', 'fit');
-  await expect(dialog(page).getByRole('button', { name: 'Actual size', exact: true })).toBeEnabled();
+  await expect(dialog(page).getByRole('button', { name: 'Zoom presets', exact: true })).toBeEnabled();
   expect(await stage(page).evaluate((node) => ({ x: node.scrollLeft, y: node.scrollTop }))).toEqual({ x: 0, y: 0 });
 });
 
@@ -290,7 +295,7 @@ test('vertical, short, canceled, mouse, and multitouch gestures do not switch im
 test('touch gestures in Actual size leave image navigation to the screen arrows', async ({ page }) => {
   await setup(page);
   await page.locator('#second').click();
-  await dialog(page).getByRole('button', { name: 'Actual size', exact: true }).click();
+  await actualSize(page);
   await pointer(page, 'pointerdown');
   await pointer(page, 'pointermove', { clientX: 200 });
   await pointer(page, 'pointerup', { clientX: 200 });
@@ -311,7 +316,7 @@ for (const width of [320, 390]) {
     expect(fitted.x + fitted.width).toBeLessThanOrEqual(viewport.x + viewport.width + 1);
     expect(fitted.y + fitted.height).toBeLessThanOrEqual(viewport.y + viewport.height + 1);
     for (const actual of [false, true]) {
-      if (actual) await dialog(page).getByRole('button', { name: 'Actual size', exact: true }).click();
+      if (actual) await actualSize(page);
       for (const control of [previous(page), next(page), counter(page)]) {
         await expect(control).toBeVisible();
         const bounds = await control.boundingBox();

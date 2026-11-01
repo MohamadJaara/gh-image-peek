@@ -71,6 +71,14 @@ dialog[data-gh-image-peek] a:hover { background: #30363d; border-color: #8b949e;
 dialog[data-gh-image-peek] button:disabled { opacity: 0.45; cursor: default; }
 dialog[data-gh-image-peek] :focus-visible { outline: 3px solid #a78bfa; outline-offset: 3px; }
 
+dialog[data-gh-image-peek] [data-peek-zoom] { position: relative; display: inline-flex; flex: 0 0 auto; border: 1px solid #ffffff38; border-radius: 8px; background: #21262d; }
+dialog[data-gh-image-peek] [data-peek-zoom] > button { padding: 8px 10px; border: 0; background: transparent; }
+dialog[data-gh-image-peek] [data-peek-zoom] > button[aria-label="Zoom presets"] { min-width: 72px; border-right: 1px solid #ffffff38; border-left: 1px solid #ffffff38; border-radius: 0; font-variant-numeric: tabular-nums; }
+dialog[data-gh-image-peek] [data-peek-presets] { position: absolute; top: calc(100% + 8px); right: 0; z-index: 2; width: 208px; padding: 6px; border: 1px solid #8b949e; border-radius: 8px; background: #21262d; box-shadow: 0 8px 24px #0008; }
+dialog[data-gh-image-peek] [data-peek-presets] button { display: flex; justify-content: space-between; width: 100%; padding: 8px 10px; border: 0; border-radius: 4px; }
+dialog[data-gh-image-peek] [data-peek-presets] button[aria-pressed="true"] { background: #30363d; }
+dialog[data-gh-image-peek] [data-peek-presets] button[aria-pressed="true"]::after { content: "✓"; margin-left: 8px; }
+
 dialog[data-gh-image-peek] [data-peek-gallery] {
   display: grid;
   grid-template-columns: 56px minmax(0, 1fr) 56px;
@@ -104,15 +112,19 @@ dialog[data-gh-image-peek] [data-peek-image] {
   flex: 0 0 auto;
   width: auto;
   height: auto;
-  max-width: 100%;
-  max-height: 100%;
+  max-width: none;
+  max-height: none;
   margin: auto;
   object-fit: contain;
   border-radius: 2px;
   background: repeating-conic-gradient(#20252c 0% 25%, #30363d 0% 50%) 0 0 / 16px 16px;
 }
 
-dialog[data-gh-image-peek][data-size="actual"] [data-peek-image] { max-width: none; max-height: none; }
+dialog[data-gh-image-peek][data-size="fit"] [data-peek-image] { cursor: zoom-in; }
+dialog[data-gh-image-peek][data-size="actual"] [data-peek-image] { cursor: zoom-out; }
+dialog[data-gh-image-peek][data-peek-can-pan] [data-peek-image] { cursor: grab; }
+dialog[data-gh-image-peek][data-peek-dragging] [data-peek-image] { cursor: grabbing; }
+dialog[data-gh-image-peek] [data-peek-image] { user-select: none; }
 dialog[data-gh-image-peek] [data-peek-status] { margin: auto; text-align: center; color: #b1bac4; }
 dialog[data-gh-image-peek] [data-peek-status][data-state="loading"]::before {
   content: "";
@@ -142,12 +154,14 @@ dialog[data-gh-image-peek] [data-peek-info] { padding-top: 8px; }
 dialog[data-gh-image-peek] [data-peek-counter] { font-variant-numeric: tabular-nums; }
 dialog[data-gh-image-peek] [data-peek-scope] { margin: 2px 0 0; color: #b1bac4; font-size: 12px; }
 dialog[data-gh-image-peek] [data-peek-help] { margin: 0; padding: 12px 20px; color: #b1bac4; font-size: 12px; }
+dialog[data-gh-image-peek] [data-peek-sr] { position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @keyframes gh-image-peek-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { dialog[data-gh-image-peek] [data-peek-status]::before { animation: none; } }
 @media (max-width: 600px) {
   dialog[data-gh-image-peek] [data-peek-toolbar] { gap: 8px; padding: 10px; flex-wrap: wrap; }
   dialog[data-gh-image-peek] [data-peek-heading] { flex-basis: calc(100% - 64px); }
   dialog[data-gh-image-peek] [data-peek-toolbar] a { flex: 1; }
+  dialog[data-gh-image-peek] [data-peek-presets] { left: 0; right: auto; }
   dialog[data-gh-image-peek] [data-peek-gallery] { grid-template-columns: 44px minmax(0, 1fr) 44px; padding: 0 6px; }
   dialog[data-gh-image-peek] button[data-peek-nav] { width: 44px; height: 48px; }
   dialog[data-gh-image-peek] [data-peek-stage] { padding: 12px; }

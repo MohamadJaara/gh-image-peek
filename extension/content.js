@@ -121,16 +121,25 @@
     const heading = element("div", { "data-peek-heading": "" });
     const caption = element("span", {}, image.alt);
     heading.append(element("strong", {}, "Image peek"), caption);
-    const sizeButton = element("button", { type: "button", disabled: "" }, "Actual size");
-    const original = element("a", { href: image.url, target: "_blank", rel: "noopener noreferrer" }, "Open original image");
-    toolbar.append(closeButton, heading, sizeButton, original);
+    const zoomControls = element("div", { "data-peek-zoom": "", role: "group", "aria-label": "Image zoom" });
+    const zoomOut = element("button", { type: "button", disabled: "", "aria-label": "Zoom out", title: "Zoom out (− with image focused)" }, "−");
+    const zoomPresets = element("button", { type: "button", disabled: "", "aria-label": "Zoom presets", "aria-expanded": "false", "aria-controls": "gh-image-peek-presets" }, "Fit ▾");
+    const zoomIn = element("button", { type: "button", disabled: "", "aria-label": "Zoom in", title: "Zoom in (+ with image focused)" }, "+");
+    const presets = element("div", { "data-peek-presets": "", id: "gh-image-peek-presets", role: "group", "aria-label": "Zoom presets", hidden: "" });
+    const presetButtons = [
+      ["fit", "Fit to window"], ["1", "100% · actual size"], ["2", "200%"], ["4", "400%"],
+    ].map(([value, label]) => element("button", { type: "button", "data-peek-scale": value, "aria-label": label }, label));
+    presets.append(...presetButtons);
+    zoomControls.append(zoomOut, zoomPresets, zoomIn, presets);
+    const original = element("a", { href: image.url, target: "_blank", rel: "noopener noreferrer", "aria-label": "Open original image" }, "Open original");
+    toolbar.append(closeButton, heading, zoomControls, original);
 
     const frame = element("div", { "data-peek-gallery": "" });
     if (!multiple) frame.setAttribute("data-single", "");
     const previous = element("button", { type: "button", "data-peek-nav": "previous", "aria-label": "Previous image", title: "Previous image (←)" }, "←");
     const next = element("button", { type: "button", "data-peek-nav": "next", "aria-label": "Next image", title: "Next image (→)" }, "→");
     previous.hidden = next.hidden = !multiple;
-    const stage = element("div", { "data-peek-stage": "", role: "region", tabindex: "0", "aria-label": "Image fit to window." });
+    const stage = element("div", { "data-peek-stage": "", role: "region", tabindex: "0", "aria-label": "Image fit to window.", "aria-describedby": "gh-image-peek-shortcuts" });
     const status = element("div", { "data-peek-status": "", role: "status", "aria-live": "polite", "aria-atomic": "true" });
     stage.append(status);
     frame.append(previous, stage, next);
@@ -140,18 +149,41 @@
     const counter = element("div", { "data-peek-counter": "", role: "status", "aria-label": "Image position", "aria-live": "polite", "aria-atomic": "true" });
     info.append(counter, element("p", { "data-peek-scope": "" }, "Images loaded on this PR page"));
     const help = element("p", { "data-peek-help": "" });
-    footer.append(info, help);
+    const shortcuts = element("p", { "data-peek-sr": "", id: "gh-image-peek-shortcuts" }, "With the image focused: + and − zoom, 0 fits to window, 1 selects actual size. Double-click toggles Fit and 100%. Ctrl plus mouse wheel over the image zooms around the pointer. Drag a zoomed image to pan.");
+    const zoomStatus = element("div", { "data-peek-sr": "", role: "status", "aria-live": "polite", "aria-atomic": "true" });
+    footer.append(info, help, shortcuts, zoomStatus);
     dialog.append(toolbar, frame, footer);
 
     let timer;
     let closed = false;
     let picture;
     let loadState;
+    let scale = 1;
+    let wheelFrame = 0;
+    let wheelDelta = 0;
+    let wheelAnchor;
+    let resizeFrame = 0;
+    let zoomAnnouncement;
+    let pan = null;
+    const zoomSteps = [1 / 64, 1 / 32, 1 / 16, 1 / 8, .25, .5, .75, 1, 1.25, 1.5, 2, 3, 4];
+    const resizeObserver = new ResizeObserver(() => {
+      if (loadState !== "ready") return;
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = 0;
+        setZoom(scale, { mode: dialog.dataset.size, preserveScale: true });
+      });
+    });
 
     function close({ navigating = false } = {}) {
       if (closed) return;
       closed = true;
       observer.disconnect();
+      resizeObserver.disconnect();
+      cancelAnimationFrame(resizeFrame);
+      cancelWheel();
+      clearPan();
+      clearTimeout(zoomAnnouncement);
       clearTimeout(timer);
       if (picture) picture.onload = picture.onerror = null;
       window.removeEventListener("keydown", onKeydown, true);
@@ -185,10 +217,11 @@
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopImmediatePropagation();
-        close();
+        if (!presets.hidden) closePresets(true);
+        else close();
       } else if (event.key === "Tab") {
         const stops = [...dialog.querySelectorAll('button:not(:disabled), a[href], [data-peek-stage]')]
-          .filter((node) => !node.hidden);
+          .filter((node) => node.getClientRects().length);
         const focusedIndex = stops.indexOf(document.activeElement);
         if (event.shiftKey && focusedIndex <= 0) {
           event.preventDefault();
@@ -199,7 +232,16 @@
         }
         // Do not let GitHub's single-key shortcuts act on the page behind us.
         event.stopPropagation();
-      } else if (multiple && dialog.dataset.size === "fit" &&
+      } else if (loadState === "ready" && document.activeElement === stage && presets.hidden &&
+          !event.defaultPrevented && !event.isComposing && !event.ctrlKey && !event.metaKey && !event.altKey &&
+          ["+", "=", "-", "0", "1"].includes(event.key)) {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelWheel();
+        if (event.key === "0") setZoom(scale, { mode: "fit" });
+        else if (event.key === "1") setZoom(1);
+        else stepZoom(event.key === "-" ? -1 : 1);
+      } else if (presets.hidden && multiple && dialog.dataset.size === "fit" && !event.isComposing &&
           !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey &&
           ["ArrowLeft", "ArrowRight"].includes(event.key)) {
         event.preventDefault();
@@ -217,17 +259,108 @@
           : "Try “Open original image”, or press Escape to return to the pull request.";
       } else if (dialog.dataset.size === "actual") {
         help.textContent = multiple
-          ? "Arrow keys to scroll · Use screen arrows to browse · Escape to close"
-          : "Arrow keys to scroll · Fit to window to see the whole image";
+          ? "Drag, scroll or arrows to pan · 0 Fit · Screen arrows to browse"
+          : "Drag, scroll or arrows to pan · 0 Fit · Escape to close";
       } else {
         help.textContent = multiple
-          ? "← → to browse · Escape to close"
-          : "Escape to close · Actual size to inspect details";
+          ? "← → to browse · Ctrl+wheel to zoom · Escape to close"
+          : "Ctrl+wheel to zoom · Double-click to inspect · Escape to close";
       }
+    }
+
+    function closePresets(focus = false) {
+      presets.hidden = true;
+      zoomPresets.setAttribute("aria-expanded", "false");
+      if (focus) zoomPresets.focus({ preventScroll: true });
+    }
+
+    function cancelWheel() {
+      cancelAnimationFrame(wheelFrame);
+      wheelFrame = 0;
+      wheelDelta = 0;
+    }
+
+    function clearPan() {
+      const previousPan = pan;
+      pan = null;
+      dialog.removeAttribute("data-peek-dragging");
+      if (previousPan?.node.hasPointerCapture(previousPan.id)) previousPan.node.releasePointerCapture(previousPan.id);
+    }
+
+    function fitScale() {
+      const bounds = stage.getBoundingClientRect();
+      const style = getComputedStyle(stage);
+      // Fit excludes padding/borders and assumes its own scrollbars disappear.
+      const width = bounds.width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) -
+        parseFloat(style.borderLeftWidth) - parseFloat(style.borderRightWidth);
+      const height = bounds.height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom) -
+        parseFloat(style.borderTopWidth) - parseFloat(style.borderBottomWidth);
+      return Math.max(.0001, Math.min(1, width / picture.naturalWidth, height / picture.naturalHeight));
+    }
+
+    function updateZoomControls() {
+      const focused = document.activeElement;
+      const ready = loadState === "ready";
+      const fitted = dialog.dataset.size === "fit";
+      zoomOut.disabled = !ready || scale <= fitScale() + .00001;
+      zoomIn.disabled = !ready || scale >= 4;
+      zoomPresets.disabled = !ready;
+      zoomPresets.textContent = fitted ? "Fit ▾" : `${Math.round(scale * 100)}% ▾`;
+      zoomPresets.setAttribute("aria-description", fitted ? "Fit to window" : `Current zoom: ${Math.round(scale * 100)} percent`);
+      for (const button of presetButtons) {
+        button.setAttribute("aria-pressed", String(button.dataset.peekScale === "fit" ? fitted : !fitted && Math.abs(scale - Number(button.dataset.peekScale)) < .00001));
+      }
+      if ((focused === zoomIn && zoomIn.disabled) ||
+          (focused === zoomOut && zoomOut.disabled)) stage.focus({ preventScroll: true });
+    }
+
+    function setZoom(value, { mode = "actual", anchor, preserveScale = false } = {}) {
+      if (closed || loadState !== "ready") return;
+      const fitted = mode === "fit";
+      const bounds = stage.getBoundingClientRect();
+      const point = anchor || { x: bounds.left + stage.clientLeft + stage.clientWidth / 2, y: bounds.top + stage.clientTop + stage.clientHeight / 2 };
+      const oldBounds = picture.getBoundingClientRect();
+      const imagePoint = { x: (point.x - oldBounds.left) / scale, y: (point.y - oldBounds.top) / scale };
+      scale = fitted ? fitScale() : Math.min(4, Math.max(preserveScale ? .0001 : fitScale(), value));
+      dialog.dataset.size = fitted ? "fit" : "actual";
+      picture.style.width = `${picture.naturalWidth * scale}px`;
+      picture.style.height = `${picture.naturalHeight * scale}px`;
+      if (fitted) stage.scrollTo({ left: 0, top: 0, behavior: "instant" });
+      else {
+        const newBounds = picture.getBoundingClientRect();
+        stage.scrollTo({
+          left: stage.scrollLeft + newBounds.left + imagePoint.x * scale - point.x,
+          top: stage.scrollTop + newBounds.top + imagePoint.y * scale - point.y,
+          behavior: "instant",
+        });
+      }
+      dialog.toggleAttribute("data-peek-can-pan", !fitted && (stage.scrollWidth > stage.clientWidth + 1 || stage.scrollHeight > stage.clientHeight + 1));
+      stage.setAttribute("aria-label", fitted ? "Image fit to window." : `Image at ${Math.round(scale * 100)} percent. Use arrow keys to scroll.`);
+      updateZoomControls();
+      updateHelp();
+      clearTimeout(zoomAnnouncement);
+      zoomAnnouncement = window.setTimeout(() => {
+        zoomStatus.textContent = fitted ? "Image fitted to window" : `Image zoom ${Math.round(scale * 100)} percent`;
+      }, 150);
+    }
+
+    function stepZoom(direction) {
+      const minimum = fitScale();
+      const stops = [minimum, ...zoomSteps.filter((step) => step > minimum + .00001)];
+      const destination = direction > 0
+        ? stops.find((step) => step > scale + .00001) ?? 4
+        : stops.findLast((step) => step < scale - .00001) ?? minimum;
+      setZoom(destination, { mode: destination <= minimum + .00001 ? "fit" : "actual" });
     }
 
     function loadImage() {
       const focused = document.activeElement;
+      cancelWheel();
+      clearPan();
+      closePresets();
+      cancelAnimationFrame(resizeFrame);
+      clearTimeout(zoomAnnouncement);
+      zoomStatus.textContent = "";
       clearTimeout(timer);
       if (picture) {
         picture.onload = picture.onerror = null;
@@ -245,16 +378,17 @@
       previous.disabled = index === 0;
       next.disabled = index === gallery.images.length - 1;
       dialog.dataset.size = "fit";
-      sizeButton.textContent = "Actual size";
-      sizeButton.disabled = true;
+      dialog.removeAttribute("data-peek-can-pan");
+      scale = 1;
       stage.setAttribute("aria-label", "Image fit to window.");
       stage.setAttribute("aria-busy", "true");
       status.textContent = "Loading image…";
       loadState = status.dataset.state = "loading";
+      updateZoomControls();
       updateHelp();
       stage.scrollTo({ left: 0, top: 0, behavior: "instant" });
 
-      if ([previous, next, sizeButton].some((button) => button === focused && button.disabled)) {
+      if ([previous, next, zoomIn, zoomOut, zoomPresets].some((button) => button === focused && button.disabled)) {
         stage.focus({ preventScroll: true });
       }
 
@@ -265,6 +399,7 @@
         loading.hidden = true;
         status.textContent = "This image could not be loaded.";
         loadState = status.dataset.state = "error";
+        updateZoomControls();
         updateHelp();
         stage.setAttribute("aria-busy", "false");
       }
@@ -279,9 +414,8 @@
         loading.hidden = false;
         status.textContent = `${loading.naturalWidth.toLocaleString()} × ${loading.naturalHeight.toLocaleString()} pixels`;
         loadState = status.dataset.state = "ready";
-        sizeButton.disabled = false;
         stage.setAttribute("aria-busy", "false");
-        updateHelp();
+        setZoom(scale, { mode: "fit" });
       };
       loading.onerror = failed;
       timer = window.setTimeout(failed, 30000);
@@ -297,19 +431,52 @@
 
     previous.addEventListener("click", () => move(-1));
     next.addEventListener("click", () => move(1));
-    sizeButton.addEventListener("click", () => {
-      const actual = dialog.dataset.size !== "actual";
-      dialog.dataset.size = actual ? "actual" : "fit";
-      sizeButton.textContent = actual ? "Fit to window" : "Actual size";
-      stage.setAttribute("aria-label", actual ? "Image at actual size. Use arrow keys to scroll." : "Image fit to window.");
-      stage.scrollTo(0, 0);
-      updateHelp();
+    zoomOut.addEventListener("click", () => { cancelWheel(); stepZoom(-1); });
+    zoomIn.addEventListener("click", () => { cancelWheel(); stepZoom(1); });
+    zoomPresets.addEventListener("click", () => {
+      presets.hidden = !presets.hidden;
+      zoomPresets.setAttribute("aria-expanded", String(!presets.hidden));
+    });
+    for (const button of presetButtons) button.addEventListener("click", () => {
+      cancelWheel();
+      if (button.dataset.peekScale === "fit") setZoom(scale, { mode: "fit" });
+      else setZoom(Number(button.dataset.peekScale));
+      closePresets();
+      stage.focus({ preventScroll: true });
+    });
+    stage.addEventListener("wheel", (event) => {
+      if (loadState !== "ready" || event.target !== picture || !event.ctrlKey ||
+          event.metaKey || event.altKey || event.shiftKey || event.defaultPrevented ||
+          !event.cancelable || !Number.isFinite(event.deltaY) || event.deltaY === 0 ||
+          ![0, 1, 2].includes(event.deltaMode)) return;
+      // This intentionally takes browser zoom only over the loaded image. Pinch
+      // devices may emit the same Ctrl-wheel events; do not guess device types.
+      event.preventDefault();
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? stage.clientHeight : 1;
+      wheelDelta = Math.max(-480, Math.min(480, wheelDelta + event.deltaY * unit));
+      wheelAnchor = { x: event.clientX, y: event.clientY };
+      if (!wheelFrame) wheelFrame = requestAnimationFrame(() => {
+        wheelFrame = 0;
+        const target = scale * Math.exp(-wheelDelta * .002);
+        wheelDelta = 0;
+        setZoom(target, { mode: target <= fitScale() + .00001 ? "fit" : "actual", anchor: wheelAnchor });
+      });
+    }, { passive: false });
+    stage.addEventListener("dblclick", (event) => {
+      if (loadState !== "ready" || event.target !== picture || event.button !== 0 ||
+          event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || event.defaultPrevented) return;
+      event.preventDefault();
+      cancelWheel();
+      clearPan();
+      if (dialog.dataset.size === "fit") setZoom(1, { anchor: { x: event.clientX, y: event.clientY } });
+      else setZoom(scale, { mode: "fit" });
       stage.focus({ preventScroll: true });
     });
     closeButton.addEventListener("click", () => close());
     dialog.addEventListener("cancel", (event) => {
       event.preventDefault();
-      close();
+      if (!presets.hidden) closePresets(true);
+      else close();
     });
     dialog.addEventListener("close", () => close());
     // Require both ends of the pointer gesture on empty space so a drag that
@@ -319,8 +486,19 @@
     let swipe = null;
     const pointers = new Set();
     dialog.addEventListener("pointerdown", (event) => {
+      if (!zoomControls.contains(event.target)) closePresets();
       suppressSwipeClick = false;
       backdropStart = event.target === stage || event.target === dialog;
+      if (event.target === picture && loadState === "ready" && event.button === 0) {
+        stage.focus({ preventScroll: true });
+        if (event.pointerType === "mouse" && dialog.hasAttribute("data-peek-can-pan") &&
+            !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+          pan = { id: event.pointerId, node: picture, x: event.clientX, y: event.clientY, left: stage.scrollLeft, top: stage.scrollTop };
+          dialog.setAttribute("data-peek-dragging", "");
+          try { picture.setPointerCapture(event.pointerId); } catch { /* No active pointer. */ }
+          event.preventDefault();
+        }
+      }
       if (!["touch", "pen"].includes(event.pointerType)) return;
       pointers.add(event.pointerId);
       if (!multiple || dialog.dataset.size !== "fit" || pointers.size !== 1 ||
@@ -334,10 +512,15 @@
       try { stage.setPointerCapture(event.pointerId); } catch { /* No active pointer. */ }
     });
     dialog.addEventListener("pointermove", (event) => {
+      if (pan?.id === event.pointerId) {
+        backdropStart = false;
+        stage.scrollTo({ left: pan.left + pan.x - event.clientX, top: pan.top + pan.y - event.clientY, behavior: "instant" });
+      }
       if (swipe?.id === event.pointerId &&
           Math.hypot(event.clientX - swipe.x, event.clientY - swipe.y) > 8) backdropStart = false;
     });
     dialog.addEventListener("pointerup", (event) => {
+      if (pan?.id === event.pointerId) clearPan();
       pointers.delete(event.pointerId);
       if (swipe?.id !== event.pointerId) return;
       const dx = event.clientX - swipe.x;
@@ -350,9 +533,13 @@
       }
     });
     dialog.addEventListener("pointercancel", (event) => {
+      if (pan?.id === event.pointerId) clearPan();
       pointers.delete(event.pointerId);
       swipe = null;
       backdropStart = false;
+    });
+    dialog.addEventListener("lostpointercapture", (event) => {
+      if (pan?.id === event.pointerId) clearPan();
     });
     dialog.addEventListener("click", (event) => {
       if (!suppressSwipeClick && backdropStart && (event.target === stage || event.target === dialog)) close();
@@ -367,6 +554,7 @@
     closeButton.focus({ preventScroll: true });
     window.addEventListener("keydown", onKeydown, true);
     observer.observe(document.documentElement, { childList: true, subtree: true });
+    resizeObserver.observe(stage);
     loadImage();
   }
 

@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GH Image Peek · Quiet zoom controls</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --peek-ink: var(--foreground, light-dark(#202124, #ededed));
+  --peek-page: var(--background, light-dark(#ffffff, #161618));
+  --peek-muted: color-mix(in srgb, var(--peek-ink) 68%, var(--peek-page));
+  --peek-surface: color-mix(in srgb, var(--peek-page) 94%, var(--peek-ink));
+  --peek-hover: color-mix(in srgb, var(--peek-page) 84%, var(--peek-ink));
+  --peek-line: color-mix(in srgb, var(--peek-page) 70%, var(--peek-ink));
+  --peek-shot: color-mix(in srgb, var(--peek-page) 88%, var(--peek-ink));
+}
+html, body { margin: 0; padding: 0; background: transparent; }
+#peek-zoom-wireframe { color: var(--peek-ink); font: 14px/1.5 var(--font-sans, system-ui, sans-serif); }
+#peek-zoom-wireframe * { box-sizing: border-box; }
+#peek-zoom-wireframe [hidden] { display: none !important; }
+#peek-zoom-wireframe button { color: inherit; font: inherit; cursor: pointer; }
+#peek-zoom-wireframe button:focus-visible { outline: 2px solid var(--peek-ink); outline-offset: 3px; }
+#peek-zoom-wireframe .design-picker { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-bottom: 14px; }
+#peek-zoom-wireframe .design-picker span { margin-right: 6px; color: var(--peek-muted); font-size: 12px; }
+#peek-zoom-wireframe .design-picker button { background: transparent; border: 1px solid var(--peek-line); border-radius: 6px; padding: 7px 12px; min-height: 36px; }
+#peek-zoom-wireframe .design-picker button[aria-pressed="true"] { background: var(--peek-hover); }
+#peek-zoom-wireframe .scene { position: relative; height: 594px; overflow: hidden; border: 1px solid var(--peek-line); border-radius: var(--radius, 12px); background: var(--peek-page); }
+#peek-zoom-wireframe .page { padding: 24px; opacity: .12; }
+#peek-zoom-wireframe .repo { margin-bottom: 24px; }
+#peek-zoom-wireframe .pr-title { font-size: 22px; margin-bottom: 20px; }
+#peek-zoom-wireframe .page-line { height: 10px; width: 80%; border-radius: 3px; margin: 24px 0; background: var(--peek-ink); }
+#peek-zoom-wireframe .viewer { position: absolute; inset: 0; display: flex; flex-direction: column; }
+#peek-zoom-wireframe .toolbar { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--peek-surface); border-bottom: 1px solid var(--peek-line); }
+#peek-zoom-wireframe .close, #peek-zoom-wireframe .nav, #peek-zoom-wireframe .zoom button { border: 0; background: transparent; }
+#peek-zoom-wireframe .close { flex: 0 0 44px; height: 44px; border: 1px solid var(--peek-line); border-radius: 6px; font-size: 25px; }
+#peek-zoom-wireframe .heading { flex: 1; min-width: 0; }
+#peek-zoom-wireframe .heading strong { display: block; font-weight: 500; }
+#peek-zoom-wireframe .filename { display: block; color: var(--peek-muted); font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#peek-zoom-wireframe .original { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 12px; border: 1px solid var(--peek-line); border-radius: 6px; color: var(--peek-muted); white-space: nowrap; }
+#peek-zoom-wireframe .zoom { position: relative; display: flex; flex: 0 0 auto; border: 1px solid var(--peek-line); border-radius: 6px; background: var(--peek-surface); }
+#peek-zoom-wireframe .zoom button { min-width: 40px; min-height: 42px; padding: 7px 10px; border-radius: 5px; }
+#peek-zoom-wireframe .zoom .zoom-value { min-width: 72px; border-left: 1px solid var(--peek-line); border-right: 1px solid var(--peek-line); border-radius: 0; font-variant-numeric: tabular-nums; }
+#peek-zoom-wireframe .zoom button:disabled { opacity: .3; cursor: default; }
+#peek-zoom-wireframe button:hover:not(:disabled) { background: var(--peek-hover); }
+#peek-zoom-wireframe .preset-menu { position: absolute; z-index: 5; top: calc(100% + 8px); right: 0; width: 180px; padding: 6px; border: 1px solid var(--peek-line); border-radius: 8px; background: var(--peek-surface); }
+#peek-zoom-wireframe .preset-menu button { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 40px; padding: 7px 10px; text-align: left; }
+#peek-zoom-wireframe .preset-menu small { color: var(--peek-muted); font: inherit; }
+#peek-zoom-wireframe .gallery { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: 52px minmax(0, 1fr) 52px; gap: 8px; padding: 0 12px; }
+#peek-zoom-wireframe .nav { align-self: center; width: 48px; height: 52px; border: 1px solid var(--peek-line); border-radius: 6px; background: var(--peek-surface); font-size: 25px; }
+#peek-zoom-wireframe .nav:disabled { opacity: .28; cursor: default; }
+#peek-zoom-wireframe .stage { position: relative; display: flex; min-height: 0; min-width: 0; padding: 16px; overflow: auto; overscroll-behavior: contain; scrollbar-color: var(--peek-line) var(--peek-page); }
+#peek-zoom-wireframe .canvas { position: relative; flex: 0 0 auto; margin: auto; }
+#peek-zoom-wireframe .sheet { position: absolute; left: 0; top: 0; width: 960px; height: 600px; overflow: hidden; transform-origin: top left; border: 2px solid var(--peek-line); border-radius: 7px; background: var(--peek-shot); user-select: none; }
+#peek-zoom-wireframe .stage.zoomed .sheet { cursor: grab; }
+#peek-zoom-wireframe .stage.dragging .sheet { cursor: grabbing; }
+#peek-zoom-wireframe .shot-header { display: flex; align-items: center; gap: 14px; height: 76px; padding: 0 30px; border-bottom: 2px solid var(--peek-line); font-size: 23px; }
+#peek-zoom-wireframe .shot-logo { width: 24px; height: 24px; border: 2px solid var(--peek-line); border-radius: 5px; }
+#peek-zoom-wireframe .shot-body { display: grid; grid-template-columns: 215px minmax(0, 1fr); height: 520px; }
+#peek-zoom-wireframe .shot-nav { border-right: 2px solid var(--peek-line); padding: 36px 28px; color: var(--peek-muted); font-size: 20px; }
+#peek-zoom-wireframe .shot-nav div { padding: 12px 0; }
+#peek-zoom-wireframe .shot-content { padding: 36px 46px; }
+#peek-zoom-wireframe .shot-title { font-size: 32px; margin-bottom: 12px; }
+#peek-zoom-wireframe .shot-subtitle { font-size: 18px; color: var(--peek-muted); margin-bottom: 30px; }
+#peek-zoom-wireframe .field-label { font-size: 18px; margin-bottom: 10px; }
+#peek-zoom-wireframe .field { border: 2px solid var(--peek-line); border-radius: 6px; padding: 13px 16px; margin-bottom: 24px; font-size: 20px; }
+#peek-zoom-wireframe .shot-save { width: 180px; padding: 12px 18px; border: 2px solid var(--peek-line); border-radius: 6px; font-size: 20px; text-align: center; }
+#peek-zoom-wireframe .floating-dock { position: absolute; z-index: 3; left: 50%; bottom: 104px; transform: translateX(-50%); }
+#peek-zoom-wireframe .floating-dock .preset-menu { top: auto; bottom: calc(100% + 8px); }
+#peek-zoom-wireframe .footer { flex: 0 0 auto; padding: 12px 12px 18px; text-align: center; }
+#peek-zoom-wireframe .counter { font-variant-numeric: tabular-nums; }
+#peek-zoom-wireframe .hint { margin-top: 10px; color: var(--peek-muted); font-size: 12px; }
+#peek-zoom-wireframe kbd { font: inherit; color: var(--peek-ink); border: 1px solid var(--peek-line); border-radius: 4px; padding: 0 4px; }
+#peek-zoom-wireframe .closed { position: absolute; inset: 0; display: grid; place-items: center; }
+#peek-zoom-wireframe .reopen { border: 1px solid var(--peek-line); border-radius: 6px; padding: 12px 20px; background: var(--peek-surface); }
+#peek-zoom-wireframe .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 560px) {
+  #peek-zoom-wireframe .scene { height: 566px; }
+  #peek-zoom-wireframe .toolbar { flex-wrap: wrap; padding: 10px; gap: 8px; }
+  #peek-zoom-wireframe .heading { flex-basis: calc(100% - 64px); }
+  #peek-zoom-wireframe .original { flex: 1; padding: 7px 10px; }
+  #peek-zoom-wireframe .gallery { grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 2px; padding: 0 6px; }
+  #peek-zoom-wireframe .nav { width: 44px; height: 48px; }
+  #peek-zoom-wireframe .stage { padding: 10px; }
+  #peek-zoom-wireframe .zoom button { min-width: 38px; min-height: 44px; padding: 6px 8px; }
+  #peek-zoom-wireframe .zoom .zoom-value { min-width: 66px; }
+  #peek-zoom-wireframe .toolbar .preset-menu { left: 0; right: auto; }
+  #peek-zoom-wireframe .design-picker { gap: 6px; }
+  #peek-zoom-wireframe .design-picker span { flex-basis: 100%; }
+}
+</style>
+</head>
+<body>
+<div id="peek-zoom-wireframe">
+  <div class="design-picker" role="group" aria-label="Zoom control placement">
+    <span>Compare placement</span>
+    <button type="button" data-placement="toolbar" aria-pressed="true">Toolbar · recommended</button>
+    <button type="button" data-placement="floating" aria-pressed="false">Floating</button>
+  </div>
+  <div class="scene">
+    <div class="page" aria-hidden="true"><div class="repo">acme / dashboard</div><div class="pr-title">Refine the settings experience #42</div><div>Conversation &nbsp; · &nbsp; Files changed</div><div class="page-line"></div><div class="page-line"></div></div>
+    <div class="viewer" role="group" aria-label="Image viewer zoom wireframe">
+      <div class="toolbar">
+        <button type="button" class="close" aria-label="Close image viewer">×</button>
+        <div class="heading"><strong>Image peek</strong><span class="filename">settings-after.png</span></div>
+        <div class="zoom" role="group" aria-label="Image zoom">
+          <button type="button" class="minus" aria-label="Zoom out">−</button>
+          <button type="button" class="zoom-value" aria-label="Zoom presets" aria-expanded="false">Fit ▾</button>
+          <button type="button" class="plus" aria-label="Zoom in">+</button>
+          <div class="preset-menu" role="group" aria-label="Zoom presets" hidden>
+            <button type="button" data-zoom="fit"><span>Fit to window</span><small>0</small></button>
+            <button type="button" data-zoom="1"><span>100% · actual size</span><small>1</small></button>
+            <button type="button" data-zoom="2">200%</button>
+            <button type="button" data-zoom="4">400%</button>
+          </div>
+        </div>
+        <span class="original">Open original ↗</span>
+      </div>
+      <div class="gallery">
+        <button type="button" class="nav previous" aria-label="Previous image">←</button>
+        <div class="stage" role="group" aria-label="Screenshot. Double-click to toggle Fit and actual size.">
+          <div class="canvas">
+            <div class="sheet" role="img" aria-label="Wireframe screenshot of workspace settings">
+              <div class="shot-header"><div class="shot-logo"></div><span>Acme workspace</span></div>
+              <div class="shot-body">
+                <div class="shot-nav"><div>Overview</div><div>Members</div><div>Settings</div><div>Activity</div></div>
+                <div class="shot-content"><div class="shot-title">Workspace settings</div><div class="shot-subtitle">Manage the details of your workspace.</div><div class="field-label">Workspace name</div><div class="field">Acme, Inc.</div><div class="field-label">Workspace URL</div><div class="field">acme.example.com</div><div class="shot-save">Save changes</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="nav next" aria-label="Next image">→</button>
+      </div>
+      <div class="floating-dock" hidden></div>
+      <div class="footer"><div class="counter" role="status" aria-live="polite">2 of 4</div><div class="hint"><kbd>+</kbd> <kbd>−</kbd> Zoom &nbsp; · &nbsp; <kbd>0</kbd> Fit &nbsp; · &nbsp; Double-click to inspect</div></div>
+      <div class="sr-only" role="status" aria-live="polite" data-zoom-status></div>
+    </div>
+    <div class="closed" hidden><button class="reopen" type="button">Open screenshot</button></div>
+  </div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById('peek-zoom-wireframe');
+  const viewer = root.querySelector('.viewer');
+  const stage = root.querySelector('.stage');
+  const canvas = root.querySelector('.canvas');
+  const sheet = root.querySelector('.sheet');
+  const zoom = root.querySelector('.zoom');
+  const value = root.querySelector('.zoom-value');
+  const menu = root.querySelector('.preset-menu');
+  const original = root.querySelector('.original');
+  const dock = root.querySelector('.floating-dock');
+  const minus = root.querySelector('.minus');
+  const plus = root.querySelector('.plus');
+  const previous = root.querySelector('.previous');
+  const next = root.querySelector('.next');
+  const names = ['settings-before.png', 'settings-after.png', 'mobile-settings.png', 'empty-state.png'];
+  let index = 1;
+  let scale = 1;
+  let fitted = true;
+  let drag;
+
+  function fitScale() {
+    const style = getComputedStyle(stage);
+    const width = stage.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const height = stage.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+    return Math.max(.05, Math.min(1, width / 960, height / 600));
+  }
+  function closeMenu() { menu.hidden = true; value.setAttribute('aria-expanded', 'false'); }
+  function paint() {
+    canvas.style.width = `${960 * scale}px`;
+    canvas.style.height = `${600 * scale}px`;
+    sheet.style.transform = `scale(${scale})`;
+    value.textContent = fitted ? 'Fit ▾' : `${Math.round(scale * 100)}% ▾`;
+    value.setAttribute('aria-label', `Zoom presets, ${fitted ? 'Fit to window' : `${Math.round(scale * 100)} percent`}`);
+    minus.disabled = scale <= fitScale() + .001;
+    plus.disabled = scale >= 4;
+    stage.classList.toggle('zoomed', !fitted);
+    root.querySelector('[data-zoom-status]').textContent = fitted ? 'Image fitted to window' : `Image zoom ${Math.round(scale * 100)} percent`;
+    root.querySelector('.hint').innerHTML = fitted
+      ? '<kbd>+</kbd> <kbd>−</kbd> Zoom &nbsp; · &nbsp; <kbd>0</kbd> Fit &nbsp; · &nbsp; Double-click to inspect'
+      : '<kbd>+</kbd> <kbd>−</kbd> Zoom &nbsp; · &nbsp; <kbd>0</kbd> Fit &nbsp; · &nbsp; Drag or arrows to pan';
+  }
+  function setZoom(target, point) {
+    const bounds = stage.getBoundingClientRect();
+    const anchor = point || { x: bounds.left + stage.clientWidth / 2, y: bounds.top + stage.clientHeight / 2 };
+    const old = canvas.getBoundingClientRect();
+    const pixel = { x: (anchor.x - old.left) / scale, y: (anchor.y - old.top) / scale };
+    scale = Math.min(4, Math.max(fitScale(), target));
+    fitted = Math.abs(scale - fitScale()) < .001;
+    paint();
+    const current = canvas.getBoundingClientRect();
+    stage.scrollLeft += current.left + pixel.x * scale - anchor.x;
+    stage.scrollTop += current.top + pixel.y * scale - anchor.y;
+  }
+  function fit() { fitted = true; scale = fitScale(); paint(); stage.scrollTo(0, 0); }
+  function navigate(delta) {
+    index = Math.min(names.length - 1, Math.max(0, index + delta));
+    root.querySelector('.counter').textContent = `${index + 1} of ${names.length}`;
+    root.querySelector('.filename').textContent = names[index];
+    root.querySelector('.shot-title').textContent = ['Workspace overview', 'Workspace settings', 'Notification settings', 'Create a workspace'][index];
+    previous.disabled = index === 0;
+    next.disabled = index === names.length - 1;
+    fit();
+  }
+  minus.addEventListener('click', () => setZoom(scale / 1.25));
+  plus.addEventListener('click', () => setZoom(scale * 1.25));
+  value.addEventListener('click', () => { menu.hidden = !menu.hidden; value.setAttribute('aria-expanded', String(!menu.hidden)); });
+  for (const button of menu.querySelectorAll('button')) button.addEventListener('click', () => {
+    button.dataset.zoom === 'fit' ? fit() : setZoom(Number(button.dataset.zoom));
+    closeMenu(); value.focus({ preventScroll: true });
+  });
+  for (const button of root.querySelectorAll('[data-placement]')) button.addEventListener('click', () => {
+    const floating = button.dataset.placement === 'floating';
+    for (const choice of root.querySelectorAll('[data-placement]')) choice.setAttribute('aria-pressed', String(choice === button));
+    dock.hidden = !floating;
+    if (floating) dock.append(zoom); else original.before(zoom);
+    closeMenu();
+    if (fitted) fit();
+  });
+  previous.addEventListener('click', () => navigate(-1));
+  next.addEventListener('click', () => navigate(1));
+  sheet.addEventListener('dblclick', (event) => {
+    event.preventDefault();
+    if (fitted) setZoom(1, { x: event.clientX, y: event.clientY }); else fit();
+  });
+  sheet.addEventListener('pointerdown', (event) => {
+    if (fitted || event.pointerType !== 'mouse' || event.button !== 0) return;
+    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, left: stage.scrollLeft, top: stage.scrollTop };
+    sheet.setPointerCapture(event.pointerId);
+    stage.classList.add('dragging');
+    event.preventDefault();
+  });
+  sheet.addEventListener('pointermove', (event) => {
+    if (!drag || drag.id !== event.pointerId) return;
+    stage.scrollTo(drag.left - (event.clientX - drag.x), drag.top - (event.clientY - drag.y));
+  });
+  for (const name of ['pointerup', 'pointercancel']) sheet.addEventListener(name, () => { drag = null; stage.classList.remove('dragging'); });
+  function dismiss() { closeMenu(); viewer.hidden = true; root.querySelector('.closed').hidden = false; }
+  root.querySelector('.close').addEventListener('click', dismiss);
+  root.querySelector('.reopen').addEventListener('click', () => { viewer.hidden = false; root.querySelector('.closed').hidden = true; fit(); });
+  document.addEventListener('click', (event) => { if (!zoom.contains(event.target)) closeMenu(); });
+  document.addEventListener('keydown', (event) => {
+    if (viewer.hidden || event.ctrlKey || event.metaKey || event.altKey || event.target.closest('.design-picker')) return;
+    if (event.key === 'Escape') { event.preventDefault(); if (!menu.hidden) closeMenu(); else dismiss(); }
+    else if (['+', '=', '-', '0', '1'].includes(event.key)) {
+      event.preventDefault();
+      if (event.key === '0') fit();
+      else if (event.key === '1') setZoom(1);
+      else setZoom(scale * (event.key === '-' ? 1 / 1.25 : 1.25));
+    } else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+      event.preventDefault();
+      if (fitted && ['ArrowLeft', 'ArrowRight'].includes(event.key)) navigate(event.key === 'ArrowRight' ? 1 : -1);
+      else if (!fitted) stage.scrollBy(event.key === 'ArrowRight' ? 64 : event.key === 'ArrowLeft' ? -64 : 0, event.key === 'ArrowDown' ? 64 : event.key === 'ArrowUp' ? -64 : 0);
+    }
+  });
+  new ResizeObserver(() => { if (fitted && !viewer.hidden) fit(); }).observe(stage);
+  fit();
+})();
+</script>
+</body>
+</html>

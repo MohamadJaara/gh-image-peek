@@ -30,8 +30,11 @@ For installation that survives Firefox restarts, the extension must first be [si
 - Images initially **fit to the window** without stretching small images. Transparent images have a checkerboard background.
 - When the page has more than one unique image, use the **← / → screen buttons** or **Left / Right arrow keys** to browse in page order. A counter shows your position, such as **2 of 4**. Navigation stops at the first and last image; single-image pages hide these controls.
 - On a touchscreen or with a pen, **swipe horizontally** across a fitted image to browse. Mouse drags, vertical gestures, and multitouch gestures do not change images.
-- Choose **Actual size** to inspect the original pixels; scroll with a mouse or trackpad, or use the arrow keys while the image area is focused. Choose **Fit to window** to return.
-- In **Actual size**, arrow keys and touch gestures pan the current image. The screen buttons still browse; each newly selected image starts fitted to the window.
+- Use the compact **− / Fit / +** toolbar control to zoom. The center button shows the current percentage and opens presets: **Fit to window**, **100% · actual size**, **200%**, and **400%**. Zoom out stops at Fit; small images are not enlarged in Fit.
+- **Ctrl + mouse wheel directly over the loaded image** zooms around the pointer. This deliberately replaces Firefox’s page zoom in that area while the viewer is open. Over the backdrop, toolbar, or page, Firefox keeps its normal behavior. Plain wheel/two-finger scrolling continues to pan.
+- **Double-click** an image to toggle Fit and 100%, zooming toward the clicked point. At a custom zoom or actual size, **drag with the primary mouse button**, scroll, or use touch panning to inspect details.
+- Click the image or Tab to its scrollable area to focus it. While that area has focus, **+** (or **=**) zooms in, **−** zooms out, **0** selects Fit, and **1** selects 100%. Ctrl/Cmd keyboard zoom shortcuts keep their browser behavior. Press **Escape** once to dismiss an open preset picker; otherwise it closes the viewer.
+- In actual size or custom zoom, arrow keys pan while the image area is focused. The screen buttons still browse; each newly selected image starts fitted to the window. Returning to Fit restores keyboard and touch-swipe gallery navigation.
 - Close with **Escape**, the **×** button, or a click on the empty backdrop. Even after browsing other images, closing restores focus to the image or link you originally clicked and keeps the PR’s scroll position.
 - **Tab / Shift+Tab** move between the viewer’s controls and scrollable image area. The page behind the modal is inert.
 - **Open original image** opens the source in a new tab when you explicitly choose it. This remains available if the image fails to load or takes longer than 30 seconds.
@@ -55,9 +58,10 @@ The manifest explicitly declares no data collection through Firefox’s [built-i
 - Only **github.com pull requests** are supported, including review comments in Files changed. GitHub Enterprise domains, issues, repository image pages, and other sites are outside this release.
 - **Inline Files changed images are supported.** Some GitHub rich image comparisons live inside cross-origin `render.githubusercontent.com` frames. Clicks inside those frames cannot be intercepted with github.com-only access; GitHub’s own comparison controls continue to work.
 - Detection is intentionally conservative. Direct image links with familiar file extensions and recognized linked previews work; an extensionless text link without a preview is left alone. Links to GitHub’s `blob` and `tree` pages retain normal navigation (a `blob` link explicitly using `?raw=true` or `?raw=1` can be viewed).
-- “Actual size” means the browser’s intrinsic image dimensions in CSS pixels, not physical display pixels. The extension uses the linked original or the preview’s current source; it cannot recover a higher-resolution original when GitHub supplies only a thumbnail.
+- **100%** means the browser’s intrinsic image dimensions in CSS pixels, not physical display pixels. Higher zoom magnifies those pixels without adding detail. The extension uses the linked original or the preview’s current source; it cannot recover a higher-resolution original when GitHub supplies only a thumbnail.
+- Some trackpad pinch gestures produce Ctrl-wheel events and may use image zoom when the pointer is over the image. Native touchscreen pinch remains browser-controlled. Physical trackpad/touchscreen behavior has not been verified; automated gesture checks use Firefox mouse input and synthesized events.
 - Expired private-image URLs, restrictive image-host policies, unsupported formats, or content security policies can prevent loading. Use **Open original image** to try the URL directly. SVGs are displayed as images, never inserted into the page as markup.
-- GitHub’s markup can change. Unsupported previews keep their existing behavior. Image editing, zoom steps, image downloading, and preferences are outside this release.
+- GitHub’s markup can change. Unsupported previews keep their existing behavior. Image editing, image downloading, and preferences are outside this release.
 - Firefox for Android has a manifest minimum of 142 but has not been verified; the automated interaction suite runs desktop Firefox.
 
 ## Verify changes
@@ -71,7 +75,7 @@ npm run lint
 npm test
 ```
 
-The Playwright suite uses real Firefox and routes GitHub/image requests to local fixtures. It verifies full-resolution opening, viewport fitting and actual-size scrolling, dismissal, focus and scroll restoration, keyboard containment, modified and auxiliary clicks, safe exclusions, new comments, SPA navigation, navigation cleanup, and loading/error/timeout behavior. Gallery checks cover ordering and deduplication, boundaries, keyboard navigation versus panning, focus after browsing, touch/pen gestures, failed or superseded image loads, refreshed image lists, and narrow-window layouts. The tests inject the same content script and stylesheet declared in the manifest; they do not install the add-on or depend on GitHub’s live markup.
+The Playwright suite uses real Firefox and routes GitHub/image requests to local fixtures. It verifies full-resolution opening, viewport fitting and actual-size scrolling, dismissal, focus and scroll restoration, keyboard containment, modified and auxiliary clicks, safe exclusions, new comments, SPA navigation, navigation cleanup, and loading/error/timeout behavior. Gallery checks cover ordering and deduplication, boundaries, keyboard navigation versus panning, focus after browsing, touch/pen gestures, failed or superseded image loads, refreshed image lists, and narrow-window layouts. Zoom checks cover presets and bounds, focus-scoped shortcuts, browser modifiers, Ctrl-wheel targeting and cursor anchoring, native plain-wheel scrolling, double-click, mouse dragging, resizing, and gallery zoom reset. The tests inject the same content script and stylesheet declared in the manifest; they do not install the add-on or depend on GitHub’s live markup.
 
 Validate the actual add-on files with Mozilla’s tooling:
 
@@ -83,11 +87,12 @@ To make an unsigned ZIP for the temporary loader, run `npx web-ext build --sourc
 
 For a live smoke check after temporary installation:
 
-1. Open a PR with a large image in its description, a comment, and an inline Files changed preview. Check fit, actual size, arrow-key scrolling, and all three close methods.
+1. Open a PR with a large image in its description, a comment, and an inline Files changed preview. Check Fit, 100%, larger zoom presets, arrow-key scrolling, and all three close methods.
 2. Start partway down the PR. Open and close repeatedly; verify the scroll position and focus stay at the opener.
 3. Check Ctrl/Cmd-click, Shift-click, middle-click, a normal text link, a badge linking to a website, and GitHub’s review controls.
 4. Navigate from another GitHub page into the PR without reloading. Load more comments or switch to Files changed and try a newly rendered image.
 5. Use Firefox’s network tools to block an image request. Confirm the error message, original-image link, and Escape/close button still work.
 6. With multiple images, browse using the screen buttons, arrow keys, and a horizontal touch swipe. Check the counter and endpoints, skip a failed image, and confirm Actual size keeps keyboard panning. Browse away from the original image before closing and check focus/scroll restoration. On a single-image page, check that arrows and the counter are hidden.
+7. Try Ctrl-wheel over the image and over the toolbar/backdrop. Check that image zoom stays under the pointer and only takes that gesture over the image. Check plain scrolling, double-click, mouse dragging, the focused **+ / − / 0 / 1** shortcuts, browser Ctrl/Cmd zoom, and any available physical trackpad/touchscreen.
 
 The installable files are all in [`extension/`](extension/). Tests and Node dependencies are development tools and are not part of the add-on.

@@ -57,6 +57,11 @@ async function setup(page, { path = prPath, slowImage } = {}) {
 const viewer = (page) => page.getByRole('dialog', { name: 'Image viewer', exact: true });
 const closeButton = (page) => page.getByRole('button', { name: 'Close image viewer', exact: true });
 
+async function chooseZoom(page, name) {
+  await viewer(page).getByRole('button', { name: 'Zoom presets', exact: true }).click();
+  await viewer(page).getByRole('button', { name, exact: true }).click();
+}
+
 // Keep intentionally ignored links in this fixture while recording whether the
 // extension prevented their browser-default action. This listener runs after it.
 async function observeIgnoredClicks(page) {
@@ -93,7 +98,7 @@ test('opens description and comment images at full resolution and fits them to t
 test('actual size exposes original pixels with a keyboard-scrollable viewport', async ({ page }) => {
   await setup(page);
   await page.locator('#description-image').click();
-  await page.getByRole('button', { name: 'Actual size', exact: true }).click();
+  await chooseZoom(page, '100% · actual size');
   const stage = viewer(page).locator('[data-peek-stage]');
   await expect(viewer(page)).toHaveAttribute('data-size', 'actual');
   await expect(stage).toBeFocused();
@@ -105,7 +110,7 @@ test('actual size exposes original pixels with a keyboard-scrollable viewport', 
   expect(await stage.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true);
   await page.keyboard.press('ArrowRight');
   await expect.poll(() => stage.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0);
-  await page.getByRole('button', { name: 'Fit to window', exact: true }).click();
+  await chooseZoom(page, 'Fit to window');
   await expect(viewer(page)).toHaveAttribute('data-size', 'fit');
 });
 
@@ -115,6 +120,7 @@ test('a narrow viewport keeps toolbar controls and the fitted image usable', asy
   await page.locator('#description-image').click();
   await expect(viewer(page).locator('img')).toBeVisible();
   for (const control of await viewer(page).locator('[data-peek-toolbar] button, [data-peek-toolbar] a').all()) {
+    if (!await control.isVisible()) continue;
     const bounds = await control.boundingBox();
     expect(bounds.x).toBeGreaterThanOrEqual(0);
     expect(bounds.y).toBeGreaterThanOrEqual(0);
@@ -127,9 +133,9 @@ test('a narrow viewport keeps toolbar controls and the fitted image usable', asy
   expect(image.y).toBeGreaterThanOrEqual(stage.y);
   expect(image.x + image.width).toBeLessThanOrEqual(stage.x + stage.width);
   expect(image.y + image.height).toBeLessThanOrEqual(stage.y + stage.height);
-  await page.getByRole('button', { name: 'Actual size', exact: true }).click();
+  await chooseZoom(page, '100% · actual size');
   await expect(viewer(page)).toHaveAttribute('data-size', 'actual');
-  await page.getByRole('button', { name: 'Fit to window', exact: true }).click();
+  await chooseZoom(page, 'Fit to window');
   await expect(viewer(page)).toHaveAttribute('data-size', 'fit');
   await closeButton(page).click();
   await expect(viewer(page)).not.toBeVisible();
