@@ -71,18 +71,32 @@ dialog[data-gh-image-peek] a:hover { background: #30363d; border-color: #8b949e;
 dialog[data-gh-image-peek] button:disabled { opacity: 0.45; cursor: default; }
 dialog[data-gh-image-peek] :focus-visible { outline: 3px solid #a78bfa; outline-offset: 3px; }
 
+dialog[data-gh-image-peek] [data-peek-gallery] {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 56px;
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0 12px;
+}
+
+dialog[data-gh-image-peek] [data-peek-gallery][data-single] { grid-template-columns: minmax(0, 1fr); padding: 0; }
+dialog[data-gh-image-peek] button[data-peek-nav] { align-self: center; justify-self: center; width: 48px; height: 52px; padding: 0; font-size: 26px; }
+
 dialog[data-gh-image-peek] [data-peek-stage] {
   position: relative;
   display: flex;
   flex: 1 1 0;
   min-height: 0;
   min-width: 0;
+  height: 100%;
   padding: 24px;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-color: #8b949e #0d1117;
 }
 
+dialog[data-gh-image-peek][data-size="fit"] [data-peek-stage] { touch-action: pan-y pinch-zoom; }
+dialog[data-gh-image-peek][data-size="fit"] [data-single] [data-peek-stage] { touch-action: auto; }
 dialog[data-gh-image-peek] [data-peek-stage]:focus-visible { outline-offset: -4px; }
 dialog[data-gh-image-peek] [data-peek-image] {
   all: unset;
@@ -123,13 +137,19 @@ dialog[data-gh-image-peek] [data-peek-status][data-state="ready"] {
   white-space: nowrap;
 }
 
-dialog[data-gh-image-peek] [data-peek-help] { flex: 0 0 auto; margin: 0; padding: 12px 20px; text-align: center; color: #b1bac4; font-size: 12px; }
+dialog[data-gh-image-peek] [data-peek-footer] { flex: 0 0 auto; text-align: center; }
+dialog[data-gh-image-peek] [data-peek-info] { padding-top: 8px; }
+dialog[data-gh-image-peek] [data-peek-counter] { font-variant-numeric: tabular-nums; }
+dialog[data-gh-image-peek] [data-peek-scope] { margin: 2px 0 0; color: #b1bac4; font-size: 12px; }
+dialog[data-gh-image-peek] [data-peek-help] { margin: 0; padding: 12px 20px; color: #b1bac4; font-size: 12px; }
 @keyframes gh-image-peek-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { dialog[data-gh-image-peek] [data-peek-status]::before { animation: none; } }
 @media (max-width: 600px) {
   dialog[data-gh-image-peek] [data-peek-toolbar] { gap: 8px; padding: 10px; flex-wrap: wrap; }
   dialog[data-gh-image-peek] [data-peek-heading] { flex-basis: calc(100% - 64px); }
   dialog[data-gh-image-peek] [data-peek-toolbar] a { flex: 1; }
+  dialog[data-gh-image-peek] [data-peek-gallery] { grid-template-columns: 44px minmax(0, 1fr) 44px; padding: 0 6px; }
+  dialog[data-gh-image-peek] button[data-peek-nav] { width: 44px; height: 48px; }
   dialog[data-gh-image-peek] [data-peek-stage] { padding: 12px; }
   dialog[data-gh-image-peek] [data-peek-help] { padding: 10px; }
 }
