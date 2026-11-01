@@ -6,6 +6,14 @@ Click an image in a GitHub pull request to inspect it in a full-size viewer over
 
 A small Firefox and Chrome WebExtension built with plain JavaScript and CSS, with no runtime dependencies. One shared viewer produces separate browser packages.
 
+## Install a signed Firefox release
+
+Published [GitHub Releases](https://github.com/MohamadJaara/gh-image-peek/releases) include a Mozilla-signed `gh-image-peek-firefox-X.Y.Z.xpi`. Download that file, open `about:addons`, choose **Install Add-on From File…** from the settings menu, and accept Firefox's installation prompt. This installation survives restarts. Refresh GitHub tabs that were already open.
+
+Signed releases include a GitHub update feed; Firefox checks it for newer signed versions when automatic updates are enabled. The first signed release and its feed must be published before this installation/update path is available. The unsigned development ZIPs below use temporary installation.
+
+Maintainers: see [signing and releases](docs/releasing.md) for one-time credentials, version tags, release assets, and signing-review recovery.
+
 ## Install temporarily in Firefox
 
 Requires **Firefox 140 or newer on desktop**.
@@ -84,7 +92,7 @@ The Firefox manifest explicitly declares no data collection through Firefox’s 
 
 ## Build from source
 
-Node.js 20+ is needed to build and test the source, not to install or use a packaged extension.
+Node.js 22+ is needed to build and test the source, not to install or use a packaged extension. CI uses Node.js 24.
 
 ```sh
 npm ci
@@ -109,6 +117,7 @@ npm ci
 npx playwright install firefox chromium
 npm run build
 npm run lint
+npm run lint:extension
 npm test
 ```
 
@@ -122,10 +131,10 @@ Validate the actual add-on files with Mozilla’s tooling:
 
 ```sh
 npm run build
-npx web-ext lint --source-dir dist/firefox --self-hosted
+npm run lint:extension
 ```
 
-`npm run build` already creates an unsigned Firefox ZIP. Mozilla tooling should always use the generated Firefox directory, for example `npx web-ext build --source-dir dist/firefox --artifacts-dir dist` or `npx web-ext sign --source-dir dist/firefox --channel=unlisted`. Permanent Firefox distribution requires Mozilla signing and a separately configured update path; Chrome publication and updates use their own distribution channel.
+`npm run build` already creates an unsigned Firefox ZIP. Mozilla tooling should always use the generated Firefox directory. The [release workflow](docs/releasing.md) signs that package, supplies matching reviewer sources, and publishes the Firefox update feed. Chrome publication and updates use their own distribution channel.
 
 For a live smoke check after installation in each supported desktop browser:
 
