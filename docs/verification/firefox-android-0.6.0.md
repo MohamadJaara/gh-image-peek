@@ -27,6 +27,6 @@ Build tests verify root manifests, package/source byte equality, versioning, ico
 
 ## Remaining installation check
 
-Automatic approval review rejected enabling **Remote debugging via USB** because it changes a security setting and exposes a debugging interface. That setting was not changed, and the unsigned add-on was not installed on Android. The [README development instructions](../../README.md#install-in-firefox-for-android) describe Mozilla's temporary `web-ext` installation path once that action is authorized.
+Automatic approval review rejected enabling **Remote debugging via USB** because it changes a security setting and exposes a debugging interface. That setting was not changed, and the unsigned add-on was not installed on Android. The [README development instructions](../../README.md#firefox-for-android) describe Mozilla's temporary `web-ext` installation path once that action is authorized.
 
 The 142 Android compatibility floor, physical hardware gestures, TalkBack, actual device rotation/browser-toolbar transitions, live GitHub content, signed installation, and updates have not been verified by this work. Desktop touch emulation and fixture testing do not establish those results.

@@ -13,7 +13,7 @@ npm run test:unit
 
 ESLint checks the extension, tooling, Playwright configuration, and tests with the recommended correctness rules. `npm run lint:fix` applies available automatic fixes. Browser globals belong to the extension; Node globals belong to scripts. Playwright tests can use both because their `page.evaluate` callbacks run inside the browser. Generated packages and reports are excluded.
 
-For changes to viewer behavior, install the Playwright browsers and run `npm run test:browser`, as described in the README. `.editorconfig` and `.gitattributes` keep indentation and line endings consistent without imposing a repository-wide reformat.
+For changes to viewer behavior, install the Playwright browsers and run `npm run test:browser`, as described in [testing](testing.md). `.editorconfig` and `.gitattributes` keep indentation and line endings consistent without imposing a repository-wide reformat.
 
 ## Workflow checks
 
