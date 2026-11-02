@@ -76,6 +76,58 @@ test('signed payload validation rejects unsigned, modified, and extra runtime fi
   assert.throws(() => validateSignedXpi(Buffer.from(zipSync(extra)), builds.firefox.files), /unexpected files/);
 });
 
+test('signed manifest validation accepts AMO newline removal and equivalent JSON formatting', async (t) => {
+  const { builds } = await fixture(t);
+  const { files, manifest } = builds.firefox;
+  for (const manifestBytes of [
+    files['manifest.json'].subarray(0, -1), // Observed in the real AMO-signed 0.6.0 XPI.
+    Buffer.from(JSON.stringify(Object.fromEntries(Object.entries(manifest).reverse()))),
+  ]) {
+    const signed = Buffer.from(zipSync({
+      ...files, 'manifest.json': manifestBytes, 'META-INF/mozilla.rsa': Buffer.from('sig'),
+    }));
+    validateSignedXpi(signed, files);
+  }
+});
+
+test('signed manifest validation rejects changed values, added fields, missing fields, and invalid JSON', async (t) => {
+  const { builds } = await fixture(t);
+  const { files, manifest } = builds.firefox;
+  const changedManifests = [
+    { ...manifest, version: '1.2.4' },
+    { ...manifest, permissions: ['storage'] },
+    { ...manifest, content_scripts: [{ ...manifest.content_scripts[0], matches: ['https://*/*'] }] },
+    { ...manifest, content_scripts: [{ ...manifest.content_scripts[0], js: ['other.js'] }] },
+    ...[
+      { id: 'other@example.com' },
+      { update_url: 'https://example.com/updates.json' },
+      { strict_min_version: '141.0' },
+    ].map((gecko) => ({ ...manifest, browser_specific_settings: {
+      gecko: { ...manifest.browser_specific_settings.gecko, ...gecko },
+    } })),
+    Object.fromEntries(Object.entries(manifest).filter(([name]) => name !== 'browser_specific_settings')),
+  ];
+  for (const changed of changedManifests) {
+    const signed = Buffer.from(zipSync({
+      ...files, 'manifest.json': Buffer.from(JSON.stringify(changed)), 'META-INF/mozilla.rsa': Buffer.from('sig'),
+    }));
+    assert.throws(() => validateSignedXpi(signed, files), /differs from the validated source: manifest.json/);
+  }
+  const invalid = Buffer.from(zipSync({
+    ...files, 'manifest.json': Buffer.from('{invalid'), 'META-INF/mozilla.rsa': Buffer.from('sig'),
+  }));
+  assert.throws(() => validateSignedXpi(invalid, files), SyntaxError);
+});
+
+test('unsigned ZIP checks still require the exact generated manifest bytes', async (t) => {
+  const { rootDir, tag, write, builds } = await fixture(t);
+  await write('dist/gh-image-peek-firefox-1.2.3.zip', Buffer.from(zipSync({
+    ...builds.firefox.files,
+    'manifest.json': builds.firefox.files['manifest.json'].subarray(0, -1),
+  })));
+  await assert.rejects(checkRelease(tag, { rootDir }), /firefox ZIP differs from the validated source: manifest.json/);
+});
+
 test('source archive includes build inputs and instructions, excluding secrets, artifacts, and dependencies', async (t) => {
   const { rootDir, write } = await fixture(t);
   await write('.env', 'NOT_A_REAL_SECRET=fixture');
@@ -93,7 +145,13 @@ test('source archive includes build inputs and instructions, excluding secrets, 
 });
 
 test('prepared feed and checksums bind versioned assets to the unchanged signed bytes', async (t) => {
-  const { rootDir, tag, signed } = await fixture(t);
+  const { rootDir, tag, builds, write } = await fixture(t);
+  const signed = Buffer.from(zipSync({
+    ...builds.firefox.files,
+    'manifest.json': builds.firefox.files['manifest.json'].subarray(0, -1),
+    'META-INF/mozilla.rsa': Buffer.from('fixture signature'),
+  }));
+  await write('signed.xpi', signed);
   await createSourceArchive({ rootDir });
   const result = await prepareRelease(tag, resolve(rootDir, 'signed.xpi'), { rootDir });
   assert.deepEqual((await readdir(result.directory)).sort(), [
