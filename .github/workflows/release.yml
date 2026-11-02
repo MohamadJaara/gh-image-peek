@@ -21,6 +21,7 @@ concurrency:
 
 jobs:
   build-and-sign:
+    name: Build and sign
     if: github.repository == 'MohamadJaara/gh-image-peek'
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -53,7 +54,8 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24'
-          cache: npm
+          # Release artifacts must not depend on a cache writable by other runs.
+          package-manager-cache: false
       - run: npm ci
       - run: npx --no-install playwright install --with-deps firefox chromium
       - run: npm run build
@@ -99,11 +101,12 @@ jobs:
           retention-days: 7
 
   publish:
+    name: Publish release
     needs: build-and-sign
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write
+      contents: write # Creates the draft, uploads assets, and publishes the release.
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:

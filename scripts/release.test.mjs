@@ -20,6 +20,7 @@ async function fixture(t) {
   await write('package-lock.json', { version, packages: { '': { version } } });
   await write('README.md', 'Fixture build instructions.\n');
   await write('playwright.config.js', 'export default {};\n');
+  await write('eslint.config.js', 'export default [];\n');
   await write('scripts/build.mjs', '// Build helper source\n');
   await write('tests/fixture.js', '// Test source\n');
   const base = { manifest_version: 3, name: 'GH Image Peek', content_scripts: [{ matches: ['https://github.com/*'], js: ['content.js'], css: ['viewer.css'] }] };
@@ -83,7 +84,7 @@ test('source archive includes build inputs and instructions, excluding secrets, 
   const archive = await createSourceArchive({ rootDir });
   const first = await readFile(archive);
   const files = unzipSync(first);
-  for (const name of ['BUILDING.md', 'package-lock.json', 'scripts/build.mjs', 'manifests/firefox.json', 'extension/content.js']) {
+  for (const name of ['BUILDING.md', 'package-lock.json', 'scripts/build.mjs', 'manifests/firefox.json', 'extension/content.js', 'eslint.config.js']) {
     assert.ok(files[name], `Missing reviewer input ${name}`);
   }
   assert.match(Buffer.from(files['BUILDING.md']).toString(), /npm ci --ignore-scripts/);

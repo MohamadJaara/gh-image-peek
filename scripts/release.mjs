@@ -113,7 +113,7 @@ export async function checkRelease(tag, { rootDir = projectRoot } = {}) {
 }
 
 async function sourceArchiveBytes(rootDir) {
-  const names = ['README.md', 'package.json', 'package-lock.json', 'playwright.config.js'];
+  const names = ['README.md', 'package.json', 'package-lock.json', 'playwright.config.js', 'eslint.config.js'];
   for (const directory of ['extension', 'manifests', 'scripts', 'tests']) {
     names.push(...(await directoryFiles(resolve(rootDir, directory))).map((name) => `${directory}/${name}`));
   }

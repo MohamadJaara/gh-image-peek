@@ -117,7 +117,7 @@ The Firefox manifest explicitly declares no data collection through Firefox’s 
 
 ## Build from source
 
-Node.js 22+ is needed to build and test the source, not to install or use a packaged extension. CI uses Node.js 24.
+Use Node.js 24+ to build and test the source; Node.js 22.x starting at 22.13 is also supported. CI and `.nvmrc` use Node.js 24. Node.js is not needed to install or use a packaged extension.
 
 ```sh
 npm ci
@@ -146,7 +146,9 @@ npm run lint:extension
 npm test
 ```
 
-`npm test` builds both packages, checks their generated files, and runs Playwright. Use `npm run test:unit` for build verification or `npm run test:browser` for browser tests alone.
+`npm run lint` checks maintained JavaScript and MJS files with ESLint's recommended correctness rules, including browser globals for the extension and Node globals for tooling. `npm run lint:fix` applies available fixes. Mozilla's separate `lint:extension` validates the generated Firefox manifest and package.
+
+`npm test` builds both packages, checks their generated files, and runs Playwright. Use `npm run test:unit` for build verification or `npm run test:browser` for browser tests alone. See [repository maintenance](docs/maintenance.md) for workflow audits, dependency updates, and GitHub settings.
 
 The shared Playwright suite runs in **Firefox and Chromium** and routes GitHub/image requests to local fixtures. It verifies full-resolution opening, viewport fitting and actual-size scrolling, dismissal, focus and scroll restoration, keyboard containment, modified and auxiliary clicks, safe exclusions, new comments, SPA navigation, navigation cleanup, and loading/error/timeout behavior. Gallery checks cover ordering and deduplication, boundaries, keyboard navigation versus panning, focus after browsing, touch/pen gestures, failed or superseded image loads, refreshed image lists, and narrow-window layouts. Zoom checks cover presets and bounds, focus-scoped shortcuts, browser modifiers, Ctrl-wheel targeting and cursor anchoring, native plain-wheel scrolling, double-click, mouse dragging, resizing, and gallery zoom reset. Compact-layout checks cover the header counter, tall-image space, help disclosure and focus, panel interactions, and narrow/short windows.
 

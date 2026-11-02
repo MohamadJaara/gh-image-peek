@@ -5,7 +5,7 @@
   "type": "module",
   "description": "A small Firefox and Chrome extension for viewing GitHub pull request images in place.",
   "engines": {
-    "node": ">=22"
+    "node": "^22.13.0 || >=24"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -14,15 +14,19 @@
     "test:unit": "node --test scripts/*.test.mjs",
     "test:browser": "playwright test",
     "test:headed": "playwright test --headed",
-    "lint": "node --check extension/content.js && node --check scripts/build.mjs && node --check scripts/export-icons.mjs && node --check scripts/release.mjs && node --check scripts/amo.mjs && node --check scripts/publish-release.mjs",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "npm run lint -- --fix",
     "lint:extension": "web-ext lint --source-dir dist/firefox --self-hosted --warnings-as-errors",
     "release:check": "node scripts/release.mjs check",
     "release:source": "node scripts/release.mjs source",
     "release:prepare": "node scripts/release.mjs prepare"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@playwright/test": "1.64.1",
+    "eslint": "10.14.0",
     "fflate": "0.8.3",
+    "globals": "17.14.0",
     "web-ext": "10.5.0"
   }
 }

@@ -22,7 +22,7 @@ The repository and downloads must remain public so Firefox can fetch updates wit
 
 ## Check a release locally
 
-Use Node.js 22+; GitHub Actions and Mozilla reviewer build instructions use Node.js 24. The exact `web-ext` version is pinned in the lockfile.
+Use Node.js 24+ or Node.js 22.x starting at 22.13; GitHub Actions and Mozilla reviewer build instructions use Node.js 24. Node.js 23 is unsupported by the lint tooling. The exact `web-ext` version is pinned in the lockfile.
 
 ```sh
 npm ci
