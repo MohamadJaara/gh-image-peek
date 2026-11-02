@@ -51,7 +51,7 @@ git push origin v0.6.0
 
 Creating the tag starts **Actions → Release**. The workflow checks that its commit is reachable from `main`, rebuilds both packages, runs all checks, packages reviewer sources, and then signs or retrieves the exact Firefox version. Do not create or move a tag for a version that has already been distributed.
 
-If the initial Mozilla submission was an older version such as `0.4.0`, the workflow submits the current version as an update to the same add-on. If Mozilla already approved the exact tagged version, the workflow downloads it instead of resubmitting it. Publication proceeds only when its runtime files and manifest exactly match the tagged build; an old or different signed package cannot be substituted.
+If the initial Mozilla submission was an older version such as `0.4.0`, the workflow submits the current version as an update to the same add-on. If Mozilla already approved the exact tagged version, the workflow downloads it instead of resubmitting it. Publication proceeds only when its runtime files match the tagged build byte for byte and every parsed manifest value matches. Mozilla can change manifest JSON formatting, such as removing its final newline, during signing; that alone does not change the extension. The signed XPI is preserved unchanged, and its exact bytes are used for the update hash and release checksums. An old or different signed package cannot be substituted.
 
 ## Normal releases
 
@@ -82,6 +82,8 @@ Publication uses a separate job with write permission. It checks the public repo
 Mozilla approval is external to CI and may take longer than a workflow's waiting budget. An existing pending, rejected, disabled, or listed-channel version stops the release with an explanation; it is not submitted again. No unsigned fallback is published. Check **AMO Developer Hub → your add-on → Manage Status & Versions** and resolve the review there. [Mozilla signing and review](https://extensionworkshop.com/documentation/publish/signing-and-distribution-overview/)
 
 After Mozilla approves the unlisted version, rerun the failed GitHub workflow or use **Actions → Release → Run workflow**, choose `main`, and enter the same existing tag. Only tags containing this release tooling can run this workflow. The helper retrieves the approved XPI from AMO using its authenticated version API, checks its AMO-provided checksum, and validates its payload against the tagged build before preparing assets.
+
+If validation fails after signing succeeds, the workflow retains the signed XPI and original generated manifest in a `signed-package-diagnostics` Actions artifact for three days. Compare them before changing validation rules. A tag containing a broken release helper still runs that helper on rerun; commit the fix and use a higher version rather than moving the existing tag.
 
 If the version is absent after an upload/network timeout, inspect AMO first: the upload may still be processing. Wait for a version record before retrying; do not blindly submit the same version twice. Authentication failures require fixing the Actions secrets or add-on ownership.
 

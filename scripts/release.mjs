@@ -54,7 +54,14 @@ function archiveFiles(bytes) {
 function sameFiles(actual, expected, label, { signatures = false } = {}) {
   for (const [name, bytes] of Object.entries(expected)) {
     assert.ok(actual[name], `${label} is missing ${name}`);
-    assert.ok(actual[name].equals(bytes), `${label} differs from the validated source: ${name}`);
+    const message = `${label} differs from the validated source: ${name}`;
+    if (signatures && name === 'manifest.json') {
+      // AMO can reserialize the manifest (including removing its final newline).
+      // Every manifest value must still match; runtime files remain byte-exact.
+      assert.deepEqual(JSON.parse(actual[name].toString('utf8')), JSON.parse(bytes.toString('utf8')), message);
+    } else {
+      assert.ok(actual[name].equals(bytes), message);
+    }
   }
   const extra = Object.keys(actual).filter((name) => !Object.hasOwn(expected, name));
   if (signatures) {
